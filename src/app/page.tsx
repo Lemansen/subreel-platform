@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { unstable_rethrow } from "next/navigation";
+import { SiteHeader } from "@/components/site-header";
+import { ContentCard } from "@/components/content-card";
 
 
 type CatalogTitle = {
@@ -14,21 +17,8 @@ type CatalogTitle = {
   release_year: number | null;
 };
 
-const contentLabels: Record<string, string> = {
-  anime: "Аниме",
-  movie: "Фильм",
-  series: "Сериал",
-  drama: "Дорама",
-  cartoon: "Мультфильм",
-  manga: "Манга",
-  manhwa: "Манхва",
-  manhua: "Маньхуа",
-  light_novel: "Лайт-новелла",
-  web_novel: "Веб-новелла",
-  book: "Книга",
-};
-
 async function HomeContent() {
+  await connection();
   let titles: CatalogTitle[] = [];
   let catalogError = false;
 
@@ -58,32 +48,7 @@ async function HomeContent() {
 
   return (
     <main className="min-h-screen bg-[#09090d] text-white">
-      <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#09090d]/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
-          <Link href="/" className="shrink-0 text-2xl font-black tracking-tight">
-            Sub<span className="text-violet-400">Reel</span>
-          </Link>
-
-          <nav className="hidden items-center gap-7 text-sm text-zinc-400 md:flex">
-            <Link href="/" className="text-white transition hover:text-violet-300">
-              Главная
-            </Link>
-            <a href="#catalog" className="transition hover:text-white">
-              Каталог
-            </a>
-            <a href="#about" className="transition hover:text-white">
-              О проекте
-            </a>
-          </nav>
-
-          <Link
-            href="/login"
-            className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium transition hover:border-violet-400/60 hover:bg-white/5"
-          >
-            Войти
-          </Link>
-        </div>
-      </header>
+      <SiteHeader active="home" />
 
       <section className="relative isolate overflow-hidden border-b border-white/[0.06]">
         <div
@@ -117,12 +82,12 @@ async function HomeContent() {
             </p>
 
             <div className="mt-9 flex flex-wrap gap-3">
-              <a
-                href="#catalog"
+              <Link
+                href="/catalog"
                 className="rounded-xl bg-violet-500 px-6 py-3.5 text-sm font-semibold transition hover:bg-violet-400"
               >
                 Открыть каталог <span aria-hidden="true">→</span>
-              </a>
+              </Link>
               <a
                 href="#about"
                 className="rounded-xl border border-white/10 bg-white/[0.03] px-6 py-3.5 text-sm font-semibold transition hover:bg-white/[0.07]"
@@ -192,6 +157,9 @@ async function HomeContent() {
           <span className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-zinc-400">
             {titles.length} {titles.length === 1 ? "тайтл" : "тайтлов"} на странице
           </span>
+          <Link href="/catalog" className="text-sm font-medium text-violet-300 transition hover:text-violet-200">
+            Весь каталог <span aria-hidden="true">→</span>
+          </Link>
         </div>
 
         {catalogError ? (
@@ -219,51 +187,9 @@ async function HomeContent() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {titles.map((title) => (
-              <Link
-                key={title.id}
-                href={`/title/${title.slug}`}
-                className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.025] transition duration-300 hover:-translate-y-1 hover:border-violet-400/40 hover:bg-white/[0.05]"
-              >
-                <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-violet-950 via-[#171321] to-[#0e0e14]">
-                  {title.cover_url ? (
-                    <div
-                      role="img"
-                      aria-label={`Обложка: ${title.name}`}
-                      className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-105"
-                      style={{
-                        backgroundImage: `url("${title.cover_url.replace(/["\\\n\r]/g, "")}")`,
-                      }}
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center p-5 text-center">
-                      <span className="text-2xl font-black text-white/25">
-                        SubReel
-                      </span>
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/10" />
-                  <span className="absolute left-3 top-3 rounded-lg border border-white/10 bg-black/50 px-2.5 py-1 text-xs backdrop-blur">
-                    {contentLabels[title.content_type] ?? title.content_type}
-                  </span>
-                  {title.release_year && (
-                    <span className="absolute bottom-3 left-3 text-xs text-zinc-300">
-                      {title.release_year}
-                    </span>
-                  )}
-                </div>
-                <div className="p-4">
-                  <h3 className="line-clamp-2 font-semibold transition group-hover:text-violet-300">
-                    {title.name}
-                  </h3>
-                  {title.description && (
-                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-zinc-400">
-                      {title.description}
-                    </p>
-                  )}
-                </div>
-              </Link>
+              <ContentCard key={title.id} title={title} />
             ))}
           </div>
         )}

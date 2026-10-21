@@ -23,7 +23,7 @@ export async function createClient() {
           });
         } catch {
           // Server Components cannot always modify cookies.
-          // Session refresh handling will be added separately.
+          // Session refresh is handled in src/proxy.ts.
         }
       },
     },
