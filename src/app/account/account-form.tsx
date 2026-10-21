@@ -10,6 +10,7 @@ type Profile = {
   display_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  is_public: boolean;
 };
 
 export default function AccountForm() {
@@ -18,9 +19,11 @@ export default function AccountForm() {
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
+  const [savedUsername, setSavedUsername] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [bio, setBio] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -50,7 +53,7 @@ export default function AccountForm() {
 
         const { data, error: profileError } = await supabase
           .from("profiles")
-          .select("username, display_name, avatar_url, bio")
+          .select("username, display_name, avatar_url, bio, is_public")
           .eq("id", user.id)
           .maybeSingle();
 
@@ -67,7 +70,7 @@ export default function AccountForm() {
           const { data: created, error: createError } = await supabase
             .from("profiles")
             .insert({ id: user.id })
-            .select("username, display_name, avatar_url, bio")
+            .select("username, display_name, avatar_url, bio, is_public")
             .single();
 
           if (!active) return;
@@ -81,9 +84,11 @@ export default function AccountForm() {
         }
 
         setUsername(profile.username ?? "");
+        setSavedUsername(profile.username?.toLowerCase() ?? null);
         setDisplayName(profile.display_name ?? "");
         setAvatarUrl(profile.avatar_url ?? "");
         setBio(profile.bio ?? "");
+        setIsPublic(profile.is_public ?? false);
       } catch {
         if (active) {
           setError("Не удалось подключиться к Supabase.");
@@ -123,6 +128,11 @@ export default function AccountForm() {
       return;
     }
 
+    if (isPublic && !normalizedUsername) {
+      setError("Чтобы открыть профиль, сначала укажи никнейм.");
+      return;
+    }
+
     if (normalizedName.length > 40) {
       setError("Отображаемое имя должно быть не длиннее 40 символов.");
       return;
@@ -149,6 +159,7 @@ export default function AccountForm() {
           display_name: normalizedName || null,
           avatar_url: normalizedAvatar || null,
           bio: normalizedBio || null,
+          is_public: isPublic,
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId);
@@ -163,6 +174,7 @@ export default function AccountForm() {
       }
 
       setUsername(normalizedUsername);
+      setSavedUsername(normalizedUsername || null);
       setDisplayName(normalizedName);
       setAvatarUrl(normalizedAvatar);
       setBio(normalizedBio);
@@ -322,6 +334,27 @@ export default function AccountForm() {
                   {bio.length}/300
                 </p>
               </div>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-black/20 p-4 transition hover:border-purple-400/40">
+                <input
+                  type="checkbox"
+                  checked={isPublic}
+                  onChange={(event) => setIsPublic(event.target.checked)}
+                  className="mt-1 h-4 w-4 accent-purple-500"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-white/85">Публичный профиль</span>
+                  <span className="mt-1 block text-xs leading-5 text-white/50">
+                    Другие смогут открыть страницу по никнейму и увидеть имя, аватар и описание. Библиотека и прогресс остаются приватными.
+                  </span>
+                </span>
+              </label>
+
+              {isPublic && savedUsername && username.trim().toLowerCase() === savedUsername && (
+                <Link href={`/u/${encodeURIComponent(savedUsername)}`} className="inline-flex text-sm text-purple-300 transition hover:text-purple-200">
+                  Открыть публичный профиль →
+                </Link>
+              )}
 
               {error && (
                 <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">

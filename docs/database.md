@@ -49,3 +49,23 @@ The catalog remains centered on franchises and titles. A title can belong to zer
 - All three tables have RLS policies using `(select auth.uid()) = user_id`, four policies (select/insert/update/delete), authenticated CRUD grants, no anon access, and no TRUNCATE privilege.
 - The generated `unit_id` makes title-level and episode/chapter-level progress upserts unique while foreign keys ensure each unit belongs to its title.
 - Migrations `supabase/sql/012_library_and_progress.sql` and `supabase/sql/013_progress_fk_indexes.sql` applied to Supabase on 2026-10-21 as `library_and_progress` and `progress_fk_indexes`. The performance advisor reports no unindexed foreign keys; unused-index notices are expected until these tables have data. The project currently has no published titles, so content-backed behavior remains to be manually checked after a permitted title/source is added.
+
+## Public profile visibility
+
+- `profiles.is_public` is opt-in and defaults to `false`. Migration `supabase/sql/014_public_profile_visibility.sql` (remote version `20261021185502`, `public_profile_visibility`) was applied to Supabase on 2026-10-21.
+- A profile owner can always read and update their own row. Signed-in visitors can read public rows; anonymous visitors can read only rows with `is_public = true`. The account's library and progress tables keep their existing owner-only policies.
+- `/account` contains the visibility toggle, and `/u/[username]` displays only the profile's display name, username, avatar, and bio. Cross-account browser/RLS verification is still outstanding.
+- `supabase/sql/017_profile_moderation.sql` adds moderator suspension fields, hides suspended profiles from public reads, prevents owners from re-enabling public visibility while suspended, and adds the `admin_set_profile_moderation` RPC. The RPC requires `app_metadata.role=catalog_admin`; profile moderation changes enter the protected audit log. This migration is prepared locally and still needs to be applied and checked against the remote project.
+
+## Catalog audit log
+
+- `supabase/sql/015_catalog_audit_log.sql` adds `public.catalog_audit_log`, an admin-readable, RLS-protected append-only log of INSERT/UPDATE/DELETE operations across catalog and source tables. `supabase/sql/016_catalog_audit_actor_index.sql` covers the actor foreign key.
+- A trigger writes actor, entity/table, associated title (when present), timestamp, and before/after row snapshots. The trigger function lives in the non-exposed `private` schema; authenticated clients have SELECT only, while direct INSERT/UPDATE/DELETE is revoked.
+- The project notes report migrations as applied to Supabase under `catalog_audit_log` and `catalog_audit_actor_index`, with RLS, admin-only SELECT, 12 triggers, and trigger insert/delete behavior verified. `/admin` shows the latest 100 events. The current session has no remote Supabase inspection capability, so the deployed state was not rechecked here.
+
+## Administrator role management
+
+- `supabase/sql/018_admin_role_management.sql` adds an RLS-protected record of role change attempts. Authenticated catalog admins may read it; only the server service role can write it.
+- `/admin` can list users and grant/revoke `catalog_admin` in `app_metadata`. The server preserves existing app metadata, prevents changing the current administrator's own role, and refuses to remove the last catalog admin.
+- Configure `SUPABASE_SERVICE_ROLE_KEY` as a server-only environment variable in local `.env.local` and the Vercel project. Do not prefix it with `NEXT_PUBLIC_` or expose it to client code. The regular catalog and profile actions continue to use the authenticated session.
+- The feature is disabled until migration 018 is applied and the server key is configured. Refresh the target user's session (sign out/in) for the updated JWT role to take effect.
