@@ -447,7 +447,16 @@ export async function addVideoSource(fd: FormData) {
   if(source_format==="embed"&&!supportedVideoEmbedUrl(source_url))fail("unsupported-embed");
   await ensureType(db,title_id,videoTypes);
   if(fd.get("rights_confirmed")!=="yes")fail("rights");
-  if(episode_id){const {data,error}=await db.from("title_episodes").select("id").eq("id",episode_id).eq("title_id",title_id).maybeSingle();if(error||!data)fail();}
+  if(episode_id){
+    const {data:episode,error}=await db.from("title_episodes").select("id,status,season_id").eq("id",episode_id).eq("title_id",title_id).maybeSingle();
+    if(error||!episode)fail();
+    if(episode.status!=="published")fail("episode-not-published");
+    if(episode.season_id){
+      const {data:season,error:seasonError}=await db.from("title_seasons").select("status").eq("id",episode.season_id).eq("title_id",title_id).maybeSingle();
+      if(seasonError||!season)fail();
+      if(season.status!=="published")fail("episode-not-published");
+    }
+  }
   const {error}=await db.from("video_sources").insert({title_id,episode_id:episode_id||null,source_url,source_format,provider_name:provider_name||null,language_code:language_code||null,quality_label:quality_label||null,availability_status:"available",rights_status:"approved",publication_status:"published",reviewed_at:new Date().toISOString()});
   if(error){console.error("[admin] video source:",error.message);fail("save");} success("video-source-added");
 }
