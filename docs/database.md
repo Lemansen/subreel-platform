@@ -55,7 +55,7 @@ The catalog remains centered on franchises and titles. A title can belong to zer
 - `profiles.is_public` is opt-in and defaults to `false`. Migration `supabase/sql/014_public_profile_visibility.sql` (remote version `20261021185502`, `public_profile_visibility`) was applied to Supabase on 2026-10-21.
 - A profile owner can always read and update their own row. Signed-in visitors can read public rows; anonymous visitors can read only rows with `is_public = true`. The account's library and progress tables keep their existing owner-only policies.
 - `/account` contains the visibility toggle, and `/u/[username]` displays only the profile's display name, username, avatar, and bio. Cross-account browser/RLS verification is still outstanding.
-- `supabase/sql/017_profile_moderation.sql` adds moderator suspension fields, hides suspended profiles from public reads, prevents owners from re-enabling public visibility while suspended, and adds the `admin_set_profile_moderation` RPC. The RPC requires `app_metadata.role=catalog_admin`; profile moderation changes enter the protected audit log. This migration is prepared locally and still needs to be applied and checked against the remote project.
+- `supabase/sql/017_profile_moderation.sql` adds moderator suspension fields, hides suspended profiles from public reads, prevents owners from re-enabling public visibility while suspended, and adds the `admin_set_profile_moderation` RPC. The RPC requires `app_metadata.role=catalog_admin`; profile moderation changes enter the protected audit log. Read-only REST checks on 2026-10-21 confirmed the moderation columns are present remotely; Supabase migration history was not available to inspect.
 
 ## Catalog audit log
 
@@ -68,4 +68,22 @@ The catalog remains centered on franchises and titles. A title can belong to zer
 - `supabase/sql/018_admin_role_management.sql` adds an RLS-protected record of role change attempts. Authenticated catalog admins may read it; only the server service role can write it.
 - `/admin` can list users and grant/revoke `catalog_admin` in `app_metadata`. The server preserves existing app metadata, prevents changing the current administrator's own role, and refuses to remove the last catalog admin.
 - Configure `SUPABASE_SERVICE_ROLE_KEY` as a server-only environment variable in local `.env.local` and the Vercel project. Do not prefix it with `NEXT_PUBLIC_` or expose it to client code. The regular catalog and profile actions continue to use the authenticated session.
-- The feature is disabled until migration 018 is applied and the server key is configured. Refresh the target user's session (sign out/in) for the updated JWT role to take effect.
+- Read-only REST checks on 2026-10-21 confirmed the role audit table and its expected columns are present remotely. The local `.env.local` contains the server key variable; Vercel configuration and role-change execution were not checked. Refresh the target user's session (sign out/in) for the updated JWT role to take effect.
+
+## Title ratings and reviews
+
+- `supabase/sql/019_title_reviews.sql` adds one 1–10 rating/review per user and published title. The text is limited to 3000 characters; owners can edit or delete their own entry.
+- Reviews and ratings are private by default. A review appears publicly only when its owner opts in and has an enabled public profile. Suspended or private profiles are excluded; public names are shown only for public profiles, otherwise the reviewer is anonymous.
+- The `title_review_stats` RPC returns only the public average and count. Read-only checks confirmed the review fields and RPC are exposed by the remote project; RLS row behavior was not tested with a signed-in user session.
+- Apply migration 017 before 019 in new environments because review policies and rating aggregates exclude suspended profiles. Migration 018 is independent.
+
+## Private library statistics
+
+- `supabase/sql/020_user_library_stats.sql` adds `user_library_stats()`, a `SECURITY INVOKER` RPC that returns exact library-status, favorite, video-position, and reading-position counts for `auth.uid()` only. Execution is granted only to `authenticated`; the underlying tables retain owner-only RLS.
+- `/account/library` displays these counters separately from its recent-item lists. The remote REST API confirms the function is present; account-scoped results were not queried because no authenticated user session was used for the check.
+
+## Friend requests and blocks
+
+- `supabase/sql/021_friendships.sql` defines private `friend_requests` and `user_blocks` tables. Requests are visible only to the two participants; only the recipient can accept/reject a pending request, and either participant can remove a request or friendship.
+- New requests require the target to have an enabled, non-suspended public profile and are rejected if either participant has blocked the other. Column-level grants prevent changing request participants or block ownership.
+- Migration 021 was applied remotely by the user on 2026-10-22. Read-only REST checks confirmed both tables and helper functions exist; anonymous requests to both tables and functions returned HTTP 401. Authenticated row-level behavior still needs a two-account session check.

@@ -10,6 +10,7 @@ type Entry = { title_id: string; status: LibraryStatus; is_favorite: boolean; up
 type Title = { id: string; name: string; slug: string; content_type: string; cover_url: string | null };
 type VideoProgress = { title_id: string; position_seconds: number; completed_at: string | null; updated_at: string };
 type ReadingProgress = { title_id: string; chapter_id: string | null; completed_at: string | null; updated_at: string };
+type LibraryStats = { library_count: number; favorite_count: number; planned_count: number; in_progress_count: number; completed_count: number; on_hold_count: number; dropped_count: number; video_positions: number; completed_video_positions: number; reading_positions: number; completed_reading_positions: number };
 const labels: Record<LibraryStatus, string> = { planned: "Запланировано", in_progress: "В процессе", completed: "Завершено", on_hold: "Отложено", dropped: "Брошено" };
 
 async function LibraryContent() {
@@ -18,14 +19,16 @@ async function LibraryContent() {
   const { data: { user }, error: authError } = await db.auth.getUser();
   if (authError || !user) redirect("/login?next=%2Faccount%2Flibrary");
 
-  const [entriesRes, videoRes, readingRes] = await Promise.all([
+  const [entriesRes, videoRes, readingRes, statsRes] = await Promise.all([
     db.from("user_library").select("title_id,status,is_favorite,updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(200),
     db.from("video_progress").select("title_id,position_seconds,completed_at,updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(200),
     db.from("reading_progress").select("title_id,chapter_id,completed_at,updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(200),
+    db.rpc("user_library_stats"),
   ]);
   const entries = (entriesRes.data ?? []) as Entry[];
   const videoProgress = (videoRes.data ?? []) as VideoProgress[];
   const readingProgress = (readingRes.data ?? []) as ReadingProgress[];
+  const stats = (statsRes.data?.[0] ?? null) as LibraryStats | null;
   const titleIds = [...new Set([...entries.map((entry) => entry.title_id), ...videoProgress.map((entry) => entry.title_id), ...readingProgress.map((entry) => entry.title_id)])];
   const titlesRes = titleIds.length ? await db.from("titles").select("id,name,slug,content_type,cover_url").in("id", titleIds) : { data: [], error: null };
   const titles = (titlesRes.data ?? []) as Title[];
@@ -50,6 +53,19 @@ async function LibraryContent() {
         <h1 className="mt-4 text-3xl font-black">Моя библиотека</h1>
         <p className="mt-2 text-sm text-zinc-400">Твои статусы и избранные произведения. Эти записи видны только тебе.</p>
         {dataError ? <p role="alert" className="mt-6 rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm text-red-200">Не удалось загрузить библиотеку. Проверь миграцию и повтори попытку.</p> : <>
+        {stats ? <section aria-label="Статистика библиотеки" className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: "В библиотеке", value: stats.library_count },
+            { label: "В избранном", value: stats.favorite_count },
+            { label: "Завершено", value: stats.completed_count },
+            { label: "В процессе", value: stats.in_progress_count },
+            { label: "Запланировано", value: stats.planned_count },
+            { label: "Отложено или брошено", value: stats.on_hold_count + stats.dropped_count },
+            { label: "Позиции просмотра", value: stats.video_positions, detail: `${stats.completed_video_positions} завершено` },
+            { label: "Позиции чтения", value: stats.reading_positions, detail: `${stats.completed_reading_positions} завершено` },
+          ].map((item) => <div key={item.label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p className="text-sm text-zinc-400">{item.label}</p><p className="mt-2 text-2xl font-black">{item.value}</p>{item.detail && <p className="mt-1 text-xs text-zinc-500">{item.detail}</p>}</div>)}
+        </section> : <p role="status" className="mt-6 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-200">Статистика появится после применения миграции 020.</p>}
+        <section className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5"><div><h2 className="font-semibold">Экспорт личных данных</h2><p className="mt-1 text-sm text-zinc-400">Скачай библиотеку, прогресс, оценки и отзывы в формате JSON.</p></div><a href="/account/library/export" className="inline-flex min-h-11 items-center rounded-xl border border-violet-400/30 px-4 text-sm font-semibold text-violet-200 transition hover:bg-violet-500/10">Скачать JSON</a></section>
         {(firstVideo.size > 0 || firstReading.size > 0) && <section className="mt-8"><h2 className="text-xl font-bold">Продолжить</h2><ul className="mt-3 grid gap-3 sm:grid-cols-2">{[...firstVideo.entries()].map(([titleId, progress]) => {
           const title = titleById.get(titleId);
           return title ? <li key={`video-${titleId}`} className="rounded-xl border border-white/10 bg-white/[0.03] p-4"><Link href={`/watch/${title.slug}`} className="font-semibold hover:text-violet-200">{title.name}</Link><p className="mt-1 text-xs text-zinc-500">Просмотр остановлен на {formatTime(progress.position_seconds)}</p><Link href={`/watch/${title.slug}`} className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-violet-500 px-3 text-sm font-semibold hover:bg-violet-400">Продолжить просмотр</Link></li> : null;

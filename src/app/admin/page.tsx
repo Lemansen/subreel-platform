@@ -4,15 +4,13 @@ import { connection } from "next/server";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/components/site-header";
-import { contentLabels } from "@/lib/catalog";
-import { TitleStatusForm } from "./title-status-form";
 import { FranchiseStatusForm } from "./franchise-status-form";
 import { StructureEditor } from "./structure-editor";
 import { UnitsEditor } from "./units-editor";
 import { ProfileModerationForm } from "./profile-moderation-form";
 import { UserRoleForm } from "./user-role-form";
 import { listAuthUsers } from "@/lib/supabase/admin-users";
-import { addGenreToTitle, addReadingSource, addVideoSource, createChapter, createEdition, createEpisode, createFranchise, createGenre, createSeason, createTitle, createTitleRelationship, createVolume, removeGenreFromTitle } from "./actions";
+import { addGenreToTitle, addReadingSource, addVideoSource, createChapter, createEdition, createEpisode, createFranchise, createGenre, createSeason, createTitleRelationship, createVolume, removeGenreFromTitle } from "./actions";
 
 type Props={searchParams:Promise<{success?:string;error?:string}>};
 type Title={id:string;name:string;original_name:string|null;slug:string;content_type:string;status:string;release_year:number|null;franchise_id:string|null;description:string|null;cover_url:string|null;banner_url:string|null};
@@ -87,19 +85,7 @@ async function AdminContent({searchParams}:Props){
   {loadError&&<p role="alert" className="mt-5 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-200">Не удалось загрузить часть каталога. Проверь миграции и права Supabase.</p>}
 
   <section className="mt-8 grid gap-5 lg:grid-cols-2">
-   <form action={createTitle} className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-    <h2 className="text-xl font-bold">Новый тайтл</h2>
-    <label className={label}>Название<input className={field} name="name" required maxLength={160}/></label>
-    <label className={label}>Slug<input className={field} name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength={160} placeholder="my-title"/></label>
-    <label className={label}>Франшиза (необязательно)<select className={field} name="franchise_id" defaultValue=""><option value="">Без франшизы</option>{franchises.map(f=><option key={f.id} value={f.id}>{f.name} · {f.status}</option>)}</select></label>
-    <label className={label}>Тип<select className={field} name="content_type">{Object.entries(contentLabels).map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label>
-    <label className={label}>Год<input className={field} name="release_year" type="number" min={1800} max={2200}/></label>
-    <label className={label}>Обложка (HTTPS)<input className={field} name="cover_url" type="url"/></label>
-    <label className={label}>Описание<textarea className={field} name="description" rows={3} maxLength={5000}/></label>
-    <button className={button}>Создать черновик</button>
-   </form>
-
-   <TitleStatusForm titles={titles} franchises={franchises}/>
+   <section className="rounded-2xl border border-violet-400/20 bg-violet-500/[0.06] p-6"><h2 className="text-xl font-bold">Редактор тайтлов</h2><p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400">Полный список с поиском и фильтрами, создание через мастер, публикация и безопасное управление записями.</p><div className="mt-5 flex flex-wrap gap-3"><Link href="/admin/titles" className={button}>Открыть редактор тайтлов</Link><Link href="/admin/titles/new" className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold">+ Создать тайтл</Link></div></section>
 
    <form action={createFranchise} className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
     <h2 className="text-xl font-bold">Новая франшиза</h2>
@@ -215,7 +201,7 @@ async function AdminContent({searchParams}:Props){
    <h3 className="mt-8 text-lg font-bold">Привязки жанров</h3>{titles.length===0?<p className="mt-3 text-sm text-zinc-400">Тайтлов пока нет.</p>:<ul className="mt-4 divide-y divide-white/10 rounded-2xl border border-white/10">{titles.map(t=>{const assigned=titleGenres.filter(x=>x.title_id===t.id);return <li key={t.id} className="p-4"><p className="font-medium">{t.name}</p>{assigned.length===0?<p className="mt-1 text-xs text-zinc-500">Жанры не назначены.</p>:<ul className="mt-2 flex flex-wrap gap-2">{assigned.map(x=>{const genre=genres.find(g=>g.id===x.genre_id);if(!genre)return null;return <li key={x.genre_id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm"><span>{genre.name}</span><form action={removeGenreFromTitle}><input type="hidden" name="title_id" value={t.id}/><input type="hidden" name="genre_id" value={genre.id}/><button className="text-zinc-400 hover:text-red-300" aria-label={`Убрать жанр ${genre.name} у ${t.name}`}>×</button></form></li>;})}</ul>}</li>;})}</ul>}
   </section>
   <section className="mt-10"><h2 className="text-2xl font-bold">Текущие франшизы</h2>{franchises.length===0?<p className="mt-3 text-sm text-zinc-400">Франшиз пока нет.</p>:<ul className="mt-4 divide-y divide-white/10 rounded-2xl border border-white/10">{franchises.map(f=><li key={f.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-medium">{f.name}</p><p className="mt-1 text-xs text-zinc-500">{f.slug} · {f.status}</p></div>{f.status==="published"?<Link href={`/franchise/${f.slug}`} className="text-sm text-violet-300">Открыть</Link>:<span className="text-xs text-zinc-500">Не видна в каталоге</span>}</li>)}</ul>}</section>
-  <section className="mt-10"><h2 className="text-2xl font-bold">Текущие тайтлы</h2>{titles.length===0?<p className="mt-3 text-sm text-zinc-400">Каталог пока пуст.</p>:<ul className="mt-4 divide-y divide-white/10 rounded-2xl border border-white/10">{titles.map(t=><li key={t.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-medium">{t.name}</p><p className="mt-1 text-xs text-zinc-500">{t.slug} · {contentLabels[t.content_type]||t.content_type} · {t.status}</p></div>{t.status==="published"?<Link href={`/title/${t.slug}`} className="text-sm text-violet-300">Открыть</Link>:<span className="text-xs text-zinc-500">Не виден в каталоге</span>}</li>)}</ul>}</section>
+  <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-5"><h2 className="text-2xl font-bold">Тайтлы</h2><p className="mt-2 text-sm text-zinc-400">Для поиска, изменения карточек и статуса открой единый редактор тайтлов.</p><Link href="/admin/titles" className="mt-4 inline-block text-sm text-violet-300">К списку тайтлов →</Link></section>
   <section className="mt-10"><h2 className="text-2xl font-bold">Модерация публичных профилей</h2><p className="mt-2 text-sm text-zinc-400">Ограничение скрывает профиль и блокирует повторное включение публичности владельцем. После снятия ограничения профиль остаётся приватным.</p><ProfileModerationForm profiles={moderationProfiles}/></section>
   <section className="mt-10"><h2 className="text-2xl font-bold">Администраторы</h2><p className="mt-2 text-sm text-zinc-400">Роль даёт полный доступ к управлению каталогом и модерации. Назначай её только доверенным пользователям. Свою роль и роль последнего администратора изменить нельзя.</p>
    {!authUsers&&<p role="alert" className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-200">{authUsersResult.error==="missing-config"?"Добавь SUPABASE_SERVICE_ROLE_KEY в серверные переменные окружения. Не используй префикс NEXT_PUBLIC_.":"Не удалось безопасно загрузить пользователей; управление ролями отключено."}</p>}

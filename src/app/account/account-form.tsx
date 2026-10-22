@@ -252,6 +252,9 @@ export default function AccountForm() {
             <Link href="/account/library" className="mt-4 inline-flex min-h-11 items-center rounded-xl border border-white/10 px-4 text-sm font-semibold transition hover:border-violet-400/40 hover:bg-white/[0.04]">
               Открыть мою библиотеку
             </Link>
+            <Link href="/friends" className="ml-2 inline-flex min-h-11 items-center rounded-xl border border-white/10 px-4 text-sm font-semibold transition hover:border-violet-400/40 hover:bg-white/[0.04]">
+              Друзья
+            </Link>
 
             {avatarUrl && (
               <div className="mt-5 flex items-center gap-4">

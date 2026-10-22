@@ -9,8 +9,13 @@ type VideoProgress = { episode_id: string | null; position_seconds: number; dura
 
 export function VideoPlayback({ titleId, episodes, sources, initialProgress, canSaveProgress }: { titleId: string; episodes: Episode[]; sources: VideoSource[]; initialProgress: VideoProgress[]; canSaveProgress: boolean }) {
   const playable = sources.filter((source) => source.source_format === "mp4" || source.source_format === "hls" || source.source_format === "dash" || source.source_format === "embed");
-  const latestEpisode = initialProgress[0]?.episode_id;
-  const initialEpisode = (latestEpisode && episodes.some((episode) => episode.id === latestEpisode) ? latestEpisode : null) ?? episodes.find((episode) => playable.some((source) => source.episode_id === episode.id))?.id ?? "title";
+  const latestProgress = initialProgress[0];
+  const resumeTarget = latestProgress?.episode_id && episodes.some((episode) => episode.id === latestProgress.episode_id)
+    ? latestProgress.episode_id
+    : latestProgress && latestProgress.episode_id === null && playable.some((source) => source.episode_id === null)
+      ? "title"
+      : null;
+  const initialEpisode = resumeTarget ?? episodes.find((episode) => playable.some((source) => source.episode_id === episode.id))?.id ?? "title";
   const [episodeId, setEpisodeId] = useState(initialEpisode);
   const [sourceId, setSourceId] = useState("");
   const options = useMemo(() => {

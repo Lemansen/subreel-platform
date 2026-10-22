@@ -5,6 +5,7 @@ import { notFound, unstable_rethrow } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/components/site-header";
 import { LibraryControl } from "@/components/library-control";
+import { TitleReviews, type ReviewItem } from "@/components/title-reviews";
 import type { LibraryStatus } from "@/app/progress/actions";
 import {
   contentLabels,
@@ -44,6 +45,8 @@ type EditionItem = { id: string; edition_kind: string; edition_number: number; n
 type VolumeItem = { id: string; edition_id: string | null; volume_number: number; name: string | null };
 type ChapterItem = { id: string; edition_id: string | null; volume_id: string | null; chapter_number: number | null; chapter_label: string; name: string | null; sort_order: number };
 type LibraryEntry = { status: LibraryStatus; is_favorite: boolean };
+type TitleReviewRow = { id: string; user_id: string; rating: number; body: string; is_public: boolean; created_at: string };
+type ReviewProfile = { id: string; username: string | null; display_name: string | null; is_public: boolean };
 
 
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -67,7 +70,7 @@ async function loadTitle(slug: string) {
   const row = title as TitleRow;
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [genresRes, outRes, inRes, franchiseRes, siblingsRes, seasonsRes, episodesRes, editionsRes, volumesRes, chaptersRes, libraryRes] =
+  const [genresRes, outRes, inRes, franchiseRes, siblingsRes, seasonsRes, episodesRes, editionsRes, volumesRes, chaptersRes, libraryRes, reviewsRes, reviewStatsRes] =
     await Promise.all([
       supabase
         .from("title_genres")
@@ -111,7 +114,29 @@ async function loadTitle(slug: string) {
       user
         ? supabase.from("user_library").select("status, is_favorite").eq("user_id", user.id).eq("title_id", row.id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
+      supabase.from("title_reviews").select("id,user_id,rating,body,is_public,created_at").eq("title_id", row.id).order("created_at", { ascending: false }).limit(100),
+      supabase.rpc("title_review_stats", { target_title_id: row.id }),
     ]);
+
+  const reviewRows = (reviewsRes.data ?? []) as TitleReviewRow[];
+  const reviewUserIds = [...new Set(reviewRows.filter((review) => review.is_public).map((review) => review.user_id))];
+  const profilesRes = reviewUserIds.length > 0
+    ? await supabase.from("profiles").select("id,username,display_name,is_public").in("id", reviewUserIds)
+    : { data: [], error: null };
+  const reviewProfiles = new Map(((profilesRes.data ?? []) as ReviewProfile[]).map((profile) => [profile.id, profile]));
+  const publicReviews: ReviewItem[] = reviewRows.filter((review) => review.is_public && reviewProfiles.get(review.user_id)?.is_public).map((review) => {
+    const profile = reviewProfiles.get(review.user_id);
+    const showIdentity = profile?.is_public === true;
+    return {
+      id: review.id,
+      userId: review.user_id,
+      name: showIdentity ? profile.display_name || profile.username || "Пользователь" : "Анонимный читатель",
+      rating: review.rating,
+      body: review.body,
+      createdAt: review.created_at,
+    };
+  });
+  const ownReview = user ? reviewRows.find((review) => review.user_id === user.id) : undefined;
 
   // Второстепенные блоки не должны ронять страницу целиком.
   for (const [name, res] of [
@@ -126,6 +151,8 @@ async function loadTitle(slug: string) {
     ["volumes", volumesRes],
     ["chapters", chaptersRes],
     ["library", libraryRes],
+    ["reviews", reviewsRes],
+    ["review_stats", reviewStatsRes],
   ] as const) {
     if (res.error) console.error(`[title/${slug}] ${name} failed:`, res.error.message);
   }
@@ -173,6 +200,11 @@ async function loadTitle(slug: string) {
     chapters: (chaptersRes.data ?? []) as ChapterItem[],
     signedIn: Boolean(user),
     libraryEntry: (libraryRes.data ?? null) as LibraryEntry | null,
+    ownReview: ownReview ? { rating: ownReview.rating, body: ownReview.body, isPublic: ownReview.is_public } : null,
+    publicReviews,
+    reviewAverage: Number((reviewStatsRes.data?.[0] as { average_rating: number | string } | undefined)?.average_rating ?? 0),
+    reviewCount: Number((reviewStatsRes.data?.[0] as { review_count: number | string } | undefined)?.review_count ?? 0),
+    reviewsAvailable: !reviewsRes.error && !reviewStatsRes.error,
   };
 }
 
@@ -346,6 +378,8 @@ async function TitleContent({ params }: { params: Params }) {
           </div>
         </div>
       </section>
+
+      <TitleReviews titleId={title.id} slug={title.slug} signedIn={signedIn} initialReview={data.ownReview} reviews={data.publicReviews} average={data.reviewAverage} count={data.reviewCount} available={data.reviewsAvailable} />
 
       {((isVideo && title.content_type !== "movie") || isReading) && (
         <section className="mx-auto max-w-7xl px-5 py-10 sm:px-8">
