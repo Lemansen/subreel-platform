@@ -83,6 +83,34 @@ export async function createGenre(fd: FormData) {
   success("genre-created");
 }
 
+export async function updateGenre(fd: FormData) {
+  const db = await admin();
+  const id = val(fd, "genre_id", 36), name = val(fd, "name", 120), slug = val(fd, "slug", 120).toLowerCase();
+  if (!isUuid(id) || !name || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail("genre-invalid");
+  const { data: current, error: lookupError } = await db.from("genres").select("id").eq("id", id).maybeSingle();
+  if (lookupError || !current) fail("genre-invalid");
+  const { error } = await db.from("genres").update({ name, slug }).eq("id", id);
+  if (error?.code === "23505") fail("genre-duplicate");
+  if (error) { console.error("[admin] update genre:", error.message); fail("save"); }
+  revalidatePath("/catalog");
+  success("genre-updated");
+}
+
+export async function deleteGenre(fd: FormData) {
+  const db = await admin();
+  const id = val(fd, "genre_id", 36);
+  if (!isUuid(id)) fail("genre-invalid");
+  const { data: current, error: lookupError } = await db.from("genres").select("id").eq("id", id).maybeSingle();
+  if (lookupError || !current) fail("genre-invalid");
+  const { count, error: countError } = await db.from("title_genres").select("title_id", { count: "exact", head: true }).eq("genre_id", id);
+  if (countError) fail("save");
+  if (count) fail("genre-in-use");
+  const { error } = await db.from("genres").delete().eq("id", id);
+  if (error) { console.error("[admin] delete genre:", error.message); fail("save"); }
+  revalidatePath("/catalog");
+  success("genre-deleted");
+}
+
 export async function addGenreToTitle(fd: FormData) {
   const db=await admin(), title_id=val(fd,"title_id",36), genre_id=val(fd,"genre_id",36);
   if(!isUuid(title_id)||!isUuid(genre_id))fail("genre-invalid");
@@ -168,15 +196,32 @@ export async function setCatalogAdminRole(fd: FormData) {
 
 export async function setFranchiseStatus(fd: FormData) {
   const db=await admin(), id=val(fd,"franchise_id",36), status=val(fd,"status",16), slug=val(fd,"slug",160).toLowerCase();
-  if(!isUuid(id)||!["draft","published","archived"].includes(status)||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))fail();
+  const name=val(fd,"name",160), description=val(fd,"description",5000), cover_url=val(fd,"cover_url",2048);
+  if(!isUuid(id)||!name||!["draft","published","archived"].includes(status)||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))fail();
+  if(cover_url&&!secureUrl(cover_url))fail();
   const {data:current,error:lookupError}=await db.from("franchises").select("slug").eq("id",id).maybeSingle();
   if(lookupError||!current)fail("save");
-  const {error}=await db.from("franchises").update({status,slug,updated_at:new Date().toISOString()}).eq("id",id);
+  const {error}=await db.from("franchises").update({name,description:description||null,cover_url:cover_url||null,status,slug,updated_at:new Date().toISOString()}).eq("id",id);
   if(error?.code==="23505")fail("franchise-slug-taken");
   if(error){console.error("[admin] franchise status:",error.message);fail("save");}
   revalidatePath("/admin");revalidatePath("/catalog");revalidatePath("/");
   revalidatePath("/franchise/"+current.slug);revalidatePath("/franchise/"+slug);
   redirect("/admin?success=franchise-updated");
+}
+
+export async function deleteFranchise(fd: FormData) {
+  const db = await admin();
+  const id = val(fd, "franchise_id", 36);
+  if (!isUuid(id)) fail("franchise-invalid");
+  const { data: franchise, error: lookupError } = await db.from("franchises").select("slug").eq("id", id).maybeSingle();
+  if (lookupError || !franchise) fail("franchise-invalid");
+  const { count, error: countError } = await db.from("titles").select("id", { count: "exact", head: true }).eq("franchise_id", id);
+  if (countError) fail("save");
+  if (count) fail("franchise-in-use");
+  const { error } = await db.from("franchises").delete().eq("id", id);
+  if (error) { console.error("[admin] delete franchise:", error.message); fail("save"); }
+  revalidatePath("/franchise/" + franchise.slug);
+  success("franchise-deleted");
 }
 
 export async function createTitleRelationship(fd: FormData) {
@@ -202,6 +247,56 @@ export async function createTitleRelationship(fd: FormData) {
   revalidatePath("/title/"+sourceResult.data.slug);
   revalidatePath("/title/"+targetResult.data.slug);
   success("relationship-created");
+}
+
+export async function updateTitleRelationship(fd: FormData) {
+  const db = await admin();
+  const id = val(fd, "relationship_id", 36);
+  const relationship_type = val(fd, "relationship_type", 32);
+  if (!isUuid(id) || !relationshipTypes.includes(relationship_type)) fail("relationship-invalid");
+  const { data: current, error: lookupError } = await db.from("title_relationships")
+    .select("source_title_id,target_title_id").eq("id", id).maybeSingle();
+  if (lookupError || !current) fail("relationship-invalid");
+  const [sourceResult, targetResult] = await Promise.all([
+    db.from("titles").select("slug").eq("id", current.source_title_id).maybeSingle(),
+    db.from("titles").select("slug").eq("id", current.target_title_id).maybeSingle(),
+  ]);
+  if (sourceResult.error || targetResult.error || !sourceResult.data || !targetResult.data) fail("relationship-invalid");
+  const { data: duplicate, error: duplicateError } = await db.from("title_relationships").select("id")
+    .eq("source_title_id", current.source_title_id).eq("target_title_id", current.target_title_id)
+    .eq("relationship_type", relationship_type).neq("id", id).maybeSingle();
+  if (duplicateError) fail("save");
+  if (duplicate) fail("relationship-duplicate");
+  if (relationship_type === "same_universe") {
+    const { data: reverseDuplicate, error: reverseError } = await db.from("title_relationships").select("id")
+      .eq("source_title_id", current.target_title_id).eq("target_title_id", current.source_title_id)
+      .eq("relationship_type", relationship_type).neq("id", id).maybeSingle();
+    if (reverseError) fail("save");
+    if (reverseDuplicate) fail("relationship-duplicate");
+  }
+  const { error } = await db.from("title_relationships").update({ relationship_type }).eq("id", id);
+  if (error) { console.error("[admin] update relationship:", error.message); fail("save"); }
+  revalidatePath("/title/" + sourceResult.data.slug);
+  revalidatePath("/title/" + targetResult.data.slug);
+  success("relationship-updated");
+}
+
+export async function deleteTitleRelationship(fd: FormData) {
+  const db = await admin();
+  const id = val(fd, "relationship_id", 36);
+  if (!isUuid(id)) fail("relationship-invalid");
+  const { data: current, error: lookupError } = await db.from("title_relationships")
+    .select("source_title_id,target_title_id").eq("id", id).maybeSingle();
+  if (lookupError || !current) fail("relationship-invalid");
+  const [sourceResult, targetResult] = await Promise.all([
+    db.from("titles").select("slug").eq("id", current.source_title_id).maybeSingle(),
+    db.from("titles").select("slug").eq("id", current.target_title_id).maybeSingle(),
+  ]);
+  const { error } = await db.from("title_relationships").delete().eq("id", id);
+  if (error) { console.error("[admin] delete relationship:", error.message); fail("save"); }
+  if (sourceResult.data) revalidatePath("/title/" + sourceResult.data.slug);
+  if (targetResult.data) revalidatePath("/title/" + targetResult.data.slug);
+  success("relationship-deleted");
 }
 
 export async function updateTitle(fd: FormData) {
@@ -367,3 +462,50 @@ export async function addReadingSource(fd: FormData) {
   const {error}=await db.from("reading_sources").insert({title_id,chapter_id:chapter_id||null,source_url,source_format,provider_name:provider_name||null,language_code:language_code||null,availability_status:"available",rights_status:"approved",publication_status:"published",reviewed_at:new Date().toISOString()});
   if(error){console.error("[admin] reading source:",error.message);fail("save");} success("reading-source-added");
 }
+
+async function updateSource(fd: FormData, kind: "video" | "reading") {
+  const db = await admin();
+  const id = val(fd, "source_id", 36);
+  const source_url = val(fd, "source_url", 2048);
+  const source_format = val(fd, "source_format", 30);
+  const provider_name = val(fd, "provider_name", 120);
+  const language_code = val(fd, "language_code", 35);
+  const quality_label = val(fd, "quality_label", 80);
+  const availability_status = val(fd, "availability_status", 20);
+  const publication_status = val(fd, "publication_status", 20);
+  const validFormats = kind === "video" ? ["hls", "dash", "mp4", "embed"] : ["image_pages", "pdf", "epub", "html", "plain_text"];
+  if (!isUuid(id) || !secureUrl(source_url) || !validFormats.includes(source_format)
+    || !["available", "unavailable", "pending"].includes(availability_status)
+    || !["draft", "published", "disabled"].includes(publication_status)) fail("source-invalid");
+  if (publication_status === "published" && availability_status !== "available") fail("source-invalid");
+  if (kind === "video" && source_format === "embed" && !supportedVideoEmbedUrl(source_url)) fail("unsupported-embed");
+  if (publication_status === "published" && fd.get("rights_confirmed") !== "yes") fail("rights");
+
+  const table = kind === "video" ? "video_sources" : "reading_sources";
+  const { data: current, error: lookupError } = await db.from(table).select("title_id,rights_status,reviewed_at").eq("id", id).maybeSingle();
+  if (lookupError || !current) fail("source-invalid");
+  const { data: title, error: titleError } = await db.from("titles").select("slug,content_type").eq("id", current.title_id).maybeSingle();
+  const allowedTypes = kind === "video" ? videoTypes : readingTypes;
+  if (titleError || !title || !allowedTypes.includes(title.content_type)) fail("source-invalid");
+
+  const sourceUpdate = {
+    source_url,
+    source_format,
+    provider_name: provider_name || null,
+    language_code: language_code || null,
+    availability_status,
+    publication_status,
+    rights_status: publication_status === "published" ? "approved" : current.rights_status,
+    reviewed_at: publication_status === "published" ? new Date().toISOString() : current.reviewed_at,
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await (kind === "video"
+    ? db.from("video_sources").update({ ...sourceUpdate, quality_label: quality_label || null }).eq("id", id)
+    : db.from("reading_sources").update(sourceUpdate).eq("id", id));
+  if (error) { console.error(`[admin] update ${kind} source:`, error.message); fail("save"); }
+  revalidatePath("/title/" + title.slug);
+  success(kind === "video" ? "video-source-updated" : "reading-source-updated");
+}
+
+export async function updateVideoSource(fd: FormData) { await updateSource(fd, "video"); }
+export async function updateReadingSource(fd: FormData) { await updateSource(fd, "reading"); }

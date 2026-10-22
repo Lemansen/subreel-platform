@@ -214,7 +214,7 @@ export async function deleteTitle(titleId: string) {
   // so dependency checks use the server-only service client after the role check above.
   const service = createSupabaseAdminClient();
   if (!service) return { ok: false as const, error: "Удаление отключено: не настроен серверный Supabase admin key." };
-  const [genres, relationships, seasons, episodes, editions, volumes, chapters, video, reading, reviews, library, videoProgress, readingProgress] = await Promise.all([
+  const [genres, relationships, seasons, episodes, editions, volumes, chapters, video, reading, reviews, library, videoProgress, readingProgress, externalIds] = await Promise.all([
     service.from("title_genres").select("title_id", { count: "exact", head: true }).eq("title_id", titleId),
     service.from("title_relationships").select("id", { count: "exact", head: true }).or(`source_title_id.eq.${titleId},target_title_id.eq.${titleId}`),
     service.from("title_seasons").select("id", { count: "exact", head: true }).eq("title_id", titleId),
@@ -228,10 +228,11 @@ export async function deleteTitle(titleId: string) {
     service.from("user_library").select("title_id", { count: "exact", head: true }).eq("title_id", titleId),
     service.from("video_progress").select("title_id", { count: "exact", head: true }).eq("title_id", titleId),
     service.from("reading_progress").select("title_id", { count: "exact", head: true }).eq("title_id", titleId),
+    service.from("catalog_external_ids").select("id", { count: "exact", head: true }).eq("title_id", titleId),
   ]);
-  const checks = [genres, relationships, seasons, episodes, editions, volumes, chapters, video, reading, reviews, library, videoProgress, readingProgress];
+  const checks = [genres, relationships, seasons, episodes, editions, volumes, chapters, video, reading, reviews, library, videoProgress, readingProgress, externalIds];
   if (checks.some((result) => result.error)) return { ok: false as const, error: "Не удалось проверить связанные данные. Удаление отменено; попробуй архивировать тайтл." };
-  const dependencyNames = ["жанры", "связи", "сезоны", "серии", "издания", "тома", "главы", "видеоисточники", "источники чтения", "отзывы", "записи библиотеки", "прогресс просмотра", "прогресс чтения"];
+  const dependencyNames = ["жанры", "связи", "сезоны", "серии", "издания", "тома", "главы", "видеоисточники", "источники чтения", "отзывы", "записи библиотеки", "прогресс просмотра", "прогресс чтения", "внешние ID импорта"];
   const dependencies = checks.flatMap((result, index) => result.count ? [`${dependencyNames[index]}: ${result.count}`] : []);
   if (dependencies.length) return { ok: false as const, error: `Удаление остановлено: связаны ${dependencies.join(", ")}. Перемести тайтл в архив, чтобы сохранить эти данные.` };
   const { error } = await db.from("titles").delete().eq("id", titleId);
