@@ -518,3 +518,28 @@ async function updateSource(fd: FormData, kind: "video" | "reading") {
 
 export async function updateVideoSource(fd: FormData) { await updateSource(fd, "video"); }
 export async function updateReadingSource(fd: FormData) { await updateSource(fd, "reading"); }
+
+async function deleteSource(fd: FormData, kind: "video" | "reading") {
+  const db = await admin();
+  const id = val(fd, "source_id", 36);
+  if (!isUuid(id)) fail("source-invalid");
+
+  const table = kind === "video" ? "video_sources" : "reading_sources";
+  const allowedTypes = kind === "video" ? videoTypes : readingTypes;
+  const { data: source, error: sourceError } = await db.from(table).select("title_id").eq("id", id).maybeSingle();
+  if (sourceError || !source) fail("source-invalid");
+  const { data: title, error: titleError } = await db.from("titles").select("slug,content_type").eq("id", source.title_id).maybeSingle();
+  if (titleError || !title || !allowedTypes.includes(title.content_type)) fail("source-invalid");
+
+  const { error } = await db.from(table).delete().eq("id", id);
+  if (error) {
+    console.error(`[admin] delete ${kind} source:`, error.message);
+    fail("save");
+  }
+  revalidatePath("/title/" + title.slug);
+  revalidatePath("/watch/" + title.slug);
+  redirect(`/admin?tab=sources&success=${kind}-source-deleted`);
+}
+
+export async function deleteVideoSource(fd: FormData) { await deleteSource(fd, "video"); }
+export async function deleteReadingSource(fd: FormData) { await deleteSource(fd, "reading"); }
