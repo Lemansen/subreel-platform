@@ -12,10 +12,10 @@ const label = "mb-1.5 block text-sm text-zinc-300";
 const button = "rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-semibold hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50";
 const statusOptions = <><option value="draft">Черновик</option><option value="published">Опубликовано</option><option value="archived">Архив</option></>;
 
-export function UnitsEditor({ titles, videoTitles, readingTitles, seasons, episodes, chapters }: { titles: Title[]; videoTitles: Title[]; readingTitles: Title[]; seasons: Season[]; episodes: Episode[]; chapters: Chapter[] }) {
-  const [seasonId, setSeasonId] = useState("");
-  const [episodeId, setEpisodeId] = useState("");
-  const [chapterId, setChapterId] = useState("");
+export function UnitsEditor({ titles, videoTitles, readingTitles, seasons, episodes, chapters, initialSeasonId, initialEpisodeId, initialChapterId }: { titles: Title[]; videoTitles: Title[]; readingTitles: Title[]; seasons: Season[]; episodes: Episode[]; chapters: Chapter[]; initialSeasonId?: string; initialEpisodeId?: string; initialChapterId?: string }) {
+  const [seasonId, setSeasonId] = useState(initialSeasonId ?? "");
+  const [episodeId, setEpisodeId] = useState(initialEpisodeId ?? "");
+  const [chapterId, setChapterId] = useState(initialChapterId ?? "");
   const season = seasons.find((item) => item.id === seasonId);
   const episode = episodes.find((item) => item.id === episodeId);
   const chapter = chapters.find((item) => item.id === chapterId);

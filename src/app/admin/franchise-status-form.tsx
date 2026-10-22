@@ -9,13 +9,14 @@ const field = "w-full rounded-xl border border-white/10 bg-[#111119] px-3 py-2.5
 const label = "mb-1.5 block text-sm text-zinc-300";
 const button = "rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-semibold hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50";
 
-export function FranchiseStatusForm({ franchises }: { franchises: Franchise[] }) {
-  const [franchiseId, setFranchiseId] = useState("");
-  const [slug, setSlug] = useState("");
-  const [status, setStatus] = useState("");
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [coverUrl, setCoverUrl] = useState("");
+export function FranchiseStatusForm({ franchises, initialFranchiseId }: { franchises: Franchise[]; initialFranchiseId?: string }) {
+  const initial = franchises.find((franchise) => franchise.id === initialFranchiseId);
+  const [franchiseId, setFranchiseId] = useState(initial?.id ?? "");
+  const [slug, setSlug] = useState(initial?.slug ?? "");
+  const [status, setStatus] = useState(initial?.status ?? "");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [coverUrl, setCoverUrl] = useState(initial?.cover_url ?? "");
 
   function selectFranchise(id: string) {
     const selected = franchises.find((franchise) => franchise.id === id);

@@ -12,10 +12,11 @@ import { UserRoleForm } from "./user-role-form";
 import { RelationshipManager } from "./relationship-manager";
 import { GenreManager } from "./genre-manager";
 import { SourceManager } from "./source-manager";
+import { StatusBoard, type StatusEntry } from "./status-board";
 import { listAuthUsers } from "@/lib/supabase/admin-users";
 import { addGenreToTitle, addReadingSource, addVideoSource, createChapter, createEdition, createEpisode, createFranchise, createGenre, createSeason, createTitleRelationship, createVolume, removeGenreFromTitle } from "./actions";
 
-type Props={searchParams:Promise<{success?:string;error?:string;tab?:string}>};
+type Props={searchParams:Promise<{success?:string;error?:string;tab?:string;edit?:string}>};
 type Title={id:string;name:string;original_name:string|null;slug:string;content_type:string;status:string;release_year:number|null;franchise_id:string|null;description:string|null;cover_url:string|null;banner_url:string|null};
 type Franchise={id:string;name:string;slug:string;status:string;description:string|null;cover_url:string|null};
 type Genre={id:string;name:string;slug:string};
@@ -72,6 +73,19 @@ async function AdminContent({searchParams}:Props){
  const roleAuditEntries=(roleAuditRes.data??[]) as RoleAuditEntry[];
  const relationships=(relRes.data??[]) as TitleRelationship[];
  const titleName=new Map(titles.map(t=>[t.id,t.name]));
+ const editKind=query.edit?.split(":")[0]??"";
+ const editId=query.edit?.split(":").slice(1).join(":")??"";
+ const statusEntries:StatusEntry[]=[
+  ...titles.map(item=>({id:item.id,kind:"Тайтл",name:item.name,detail:item.slug,status:item.status as StatusEntry["status"],href:`/admin/titles/${item.id}/edit`})),
+  ...franchises.map(item=>({id:item.id,kind:"Франшиза",name:item.name,detail:item.slug,status:item.status as StatusEntry["status"],href:`/admin?tab=franchises&edit=franchise:${item.id}`})),
+  ...seasons.map(item=>({id:item.id,kind:"Сезон",name:`${titleName.get(item.title_id)??"Тайтл"} · ${item.name||`Сезон ${item.season_number}`}`,detail:"",status:item.status as StatusEntry["status"],href:`/admin?tab=structure&edit=season:${item.id}`})),
+  ...episodes.map(item=>({id:item.id,kind:"Серия",name:`${titleName.get(item.title_id)??"Тайтл"} · серия ${item.episode_number}${item.name?` · ${item.name}`:""}`,detail:"",status:item.status as StatusEntry["status"],href:`/admin?tab=structure&edit=episode:${item.id}`})),
+  ...chapters.map(item=>({id:item.id,kind:"Глава",name:`${titleName.get(item.title_id)??"Тайтл"} · глава ${item.chapter_label}${item.name?` · ${item.name}`:""}`,detail:"",status:item.status as StatusEntry["status"],href:`/admin?tab=structure&edit=chapter:${item.id}`})),
+  ...editions.map(item=>({id:item.id,kind:"Издание",name:`${titleName.get(item.title_id)??"Тайтл"} · ${item.name}`,detail:`${item.edition_kind} · №${item.edition_number}`,status:item.status as StatusEntry["status"],href:`/admin?tab=structure&edit=edition:${item.id}`})),
+  ...volumes.map(item=>({id:item.id,kind:"Том",name:`${titleName.get(item.title_id)??"Тайтл"} · ${item.name||`Том ${item.volume_number}`}`,detail:"",status:item.status as StatusEntry["status"],href:`/admin?tab=structure&edit=volume:${item.id}`})),
+  ...video.map(item=>({id:item.id,kind:"Видеоисточник",name:titleName.get(item.title_id)??"Тайтл",detail:`${item.provider_name||item.source_format} · ${item.source_format}`,status:item.publication_status as StatusEntry["status"],href:`/admin?tab=sources#source-video-${item.id}`})),
+  ...reading.map(item=>({id:item.id,kind:"Источник чтения",name:titleName.get(item.title_id)??"Тайтл",detail:`${item.provider_name||item.source_format} · ${item.source_format}`,status:item.publication_status as StatusEntry["status"],href:`/admin?tab=sources#source-reading-${item.id}`})),
+ ];
  const videoTitles=titles.filter(t=>["anime","movie","series","drama","cartoon"].includes(t.content_type));
  const readingTitles=titles.filter(t=>["manga","manhwa","manhua","light_novel","web_novel","book"].includes(t.content_type));
  const loadError=[tRes.error,fRes.error,gRes.error,tgRes.error,sRes.error,eRes.error,edRes.error,volRes.error,cRes.error,vRes.error,rRes.error,aRes.error,pRes.error,relRes.error].some(Boolean);
@@ -87,7 +101,7 @@ async function AdminContent({searchParams}:Props){
   {loadError&&<p role="alert" className="mt-5 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-200">Не удалось загрузить часть каталога. Проверь миграции и права Supabase.</p>}
 
   {(() => {
-   const tabs = [["overview", "Обзор"], ["franchises", "Франшизы"], ["genres", "Жанры"], ["relationships", "Связи"], ["structure", "Структура"], ["sources", "Источники"], ["users", "Пользователи"], ["audit", "Журнал"]] as const;
+   const tabs = [["overview", "Обзор"], ["drafts", "Черновики и статусы"], ["franchises", "Франшизы"], ["genres", "Жанры"], ["relationships", "Связи"], ["structure", "Структура"], ["sources", "Источники"], ["users", "Пользователи"], ["audit", "Журнал"]] as const;
    const activeTab = tabs.some(([id]) => id === query.tab) ? query.tab! : "overview";
    const panel = "mt-8 space-y-6";
    return <>
@@ -95,6 +109,7 @@ async function AdminContent({searchParams}:Props){
      {tabs.map(([id, label]) => <Link key={id} href={`/admin?tab=${id}`} aria-current={activeTab === id ? "page" : undefined} className={`rounded-lg px-3 py-2 transition ${activeTab === id ? "bg-violet-500 text-white" : "text-zinc-300 hover:bg-white/10 hover:text-white"}`}>{label}</Link>)}
     </nav>
     {activeTab === "overview" && <div className={panel}><div className="grid gap-5 lg:grid-cols-2">   <section className="rounded-2xl border border-violet-400/20 bg-violet-500/[0.06] p-6"><h2 className="text-xl font-bold">Редактор тайтлов</h2><p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400">Полный список с поиском и фильтрами, создание через мастер, публикация и безопасное управление записями.</p><div className="mt-5 flex flex-wrap gap-3"><Link href="/admin/titles" className={button}>Открыть редактор тайтлов</Link><Link href="/admin/titles/new" className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold">+ Создать тайтл</Link><Link href="/admin/import" className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold">Импорт каталога</Link><Link href="/admin/reports" className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold">Жалобы и апелляции</Link></div></section></div>  <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-5"><h2 className="text-2xl font-bold">Тайтлы</h2><p className="mt-2 text-sm text-zinc-400">Для поиска, изменения карточек и статуса открой единый редактор тайтлов.</p><Link href="/admin/titles" className="mt-4 inline-block text-sm text-violet-300">К списку тайтлов →</Link></section></div>}
+    {activeTab === "drafts" && <div className={panel}><StatusBoard entries={statusEntries}/></div>}
     {activeTab === "franchises" && <div className={panel}><h2 className="text-2xl font-bold">Франшизы</h2><div className="grid gap-5 lg:grid-cols-2">   <form id="franchises" action={createFranchise} className="scroll-mt-24 space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
     <h2 className="text-xl font-bold">Новая франшиза</h2>
     <label className={label}>Название<input className={field} name="name" required maxLength={160}/></label>
@@ -104,7 +119,7 @@ async function AdminContent({searchParams}:Props){
     <button className={button}>Создать черновик франшизы</button>
    </form>
 
-   <FranchiseStatusForm franchises={franchises}/></div>  <section className="mt-10"><h2 className="text-2xl font-bold">Текущие франшизы</h2>{franchises.length===0?<p className="mt-3 text-sm text-zinc-400">Франшиз пока нет.</p>:<ul className="mt-4 divide-y divide-white/10 rounded-2xl border border-white/10">{franchises.map(f=><li key={f.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-medium">{f.name}</p><p className="mt-1 text-xs text-zinc-500">{f.slug} · {f.status}</p></div>{f.status==="published"?<Link href={`/franchise/${f.slug}`} className="text-sm text-violet-300">Открыть</Link>:<span className="text-xs text-zinc-500">Не видна в каталоге</span>}</li>)}</ul>}</section></div>}
+   <FranchiseStatusForm key={editId} franchises={franchises} initialFranchiseId={editKind === "franchise" ? editId : undefined}/></div>  <section className="mt-10"><h2 className="text-2xl font-bold">Текущие франшизы</h2>{franchises.length===0?<p className="mt-3 text-sm text-zinc-400">Франшиз пока нет.</p>:<ul className="mt-4 divide-y divide-white/10 rounded-2xl border border-white/10">{franchises.map(f=><li key={f.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-medium">{f.name}</p><p className="mt-1 text-xs text-zinc-500">{f.slug} · {f.status}</p></div>{f.status==="published"?<Link href={`/franchise/${f.slug}`} className="text-sm text-violet-300">Открыть</Link>:<span className="text-xs text-zinc-500">Не видна в каталоге</span>}</li>)}</ul>}</section></div>}
     {activeTab === "genres" && <div className={panel}><h2 className="text-2xl font-bold">Жанры</h2><div className="grid gap-5 lg:grid-cols-2">   <form action={createGenre} className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
     <h2 className="text-xl font-bold">Новый жанр</h2>
     <label className={label}>Название<input className={field} name="name" required maxLength={120} placeholder="Научная фантастика"/></label>
@@ -177,8 +192,8 @@ async function AdminContent({searchParams}:Props){
     <label className={label}>Название (необязательно)<input className={field} name="name" maxLength={160}/></label>
     <label className={label}>Описание<textarea className={field} name="description" rows={3} maxLength={3000}/></label>
     <label className="flex items-center gap-2 text-sm text-zinc-300"><input type="checkbox" name="publish" value="yes"/>Опубликовать сразу</label><button className={button} disabled={!readingTitles.length}>Добавить том</button>
-   </form></div>  <div id="structure" className="scroll-mt-24"><StructureEditor editions={editions} volumes={volumes} titles={readingTitles}/>
-  <UnitsEditor titles={titles} videoTitles={videoTitles} readingTitles={readingTitles} seasons={seasons} episodes={episodes} chapters={chapters}/></div>  <section className="mt-10 grid gap-8 lg:grid-cols-2">
+   </form></div>  <div id="structure" className="scroll-mt-24"><StructureEditor key={editId} editions={editions} volumes={volumes} titles={readingTitles} initialEditionId={editKind === "edition" ? editId : undefined} initialVolumeId={editKind === "volume" ? editId : undefined}/>
+  <UnitsEditor key={editId} titles={titles} videoTitles={videoTitles} readingTitles={readingTitles} seasons={seasons} episodes={episodes} chapters={chapters} initialSeasonId={editKind === "season" ? editId : undefined} initialEpisodeId={editKind === "episode" ? editId : undefined} initialChapterId={editKind === "chapter" ? editId : undefined}/></div>  <section className="mt-10 grid gap-8 lg:grid-cols-2">
    <div><h2 className="text-2xl font-bold">Издания</h2>{editions.length===0?<p className="mt-3 text-sm text-zinc-400">Изданий пока нет.</p>:<ul className="mt-4 divide-y divide-white/10 rounded-2xl border border-white/10">{editions.map(e=><li key={e.id} className="p-4"><p className="font-medium">{titleName.get(e.title_id)} · {e.name}</p><p className="mt-1 text-xs text-zinc-500">{e.edition_kind} · №{e.edition_number}{e.language_code?` · ${e.language_code}`:""} · {e.status}</p></li>)}</ul>}</div>
    <div><h2 className="text-2xl font-bold">Тома</h2>{volumes.length===0?<p className="mt-3 text-sm text-zinc-400">Томов пока нет.</p>:<ul className="mt-4 divide-y divide-white/10 rounded-2xl border border-white/10">{volumes.map(v=><li key={v.id} className="p-4"><p className="font-medium">{titleName.get(v.title_id)} · {v.name||`Том ${v.volume_number}`}</p><p className="mt-1 text-xs text-zinc-500">{v.edition_id?editions.find(e=>e.id===v.edition_id)?.name||"Издание":"Без отдельного издания"} · {v.status}</p></li>)}</ul>}</div>
   </section></div>}

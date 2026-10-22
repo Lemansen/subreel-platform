@@ -30,7 +30,7 @@ export function SourceManager({ title, items, kind }: { title: string; items: So
       {items.length === 0 ? <p className="mt-3 text-sm text-zinc-500">Источников пока нет.</p> : (
         <ul className="mt-3 space-y-3">
           {items.map((source) => (
-            <li key={source.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+            <li id={`source-${kind}-${source.id}`} key={source.id} className="scroll-mt-8 rounded-xl border border-white/10 bg-black/20 p-3">
               <form action={updateAction} className="grid gap-3 sm:grid-cols-2">
                 <input type="hidden" name="source_id" value={source.id} />
                 <label className={label}>HTTPS URL<input className={field} name="source_url" type="url" required maxLength={2048} defaultValue={source.source_url} /></label>

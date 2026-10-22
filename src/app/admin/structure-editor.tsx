@@ -10,9 +10,9 @@ const field = "w-full rounded-xl border border-white/10 bg-[#111119] px-3 py-2.5
 const label = "mb-1.5 block text-sm text-zinc-300";
 const button = "rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-semibold hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50";
 
-export function StructureEditor({ editions, volumes, titles }: { editions: Edition[]; volumes: Volume[]; titles: Title[] }) {
-  const [editionId, setEditionId] = useState("");
-  const [volumeId, setVolumeId] = useState("");
+export function StructureEditor({ editions, volumes, titles, initialEditionId, initialVolumeId }: { editions: Edition[]; volumes: Volume[]; titles: Title[]; initialEditionId?: string; initialVolumeId?: string }) {
+  const [editionId, setEditionId] = useState(initialEditionId ?? "");
+  const [volumeId, setVolumeId] = useState(initialVolumeId ?? "");
   const edition = editions.find((item) => item.id === editionId);
   const volume = volumes.find((item) => item.id === volumeId);
 
