@@ -199,7 +199,7 @@ async function CatalogContent({
             </div>
             <div className="flex gap-2">
               <Link href="/catalog" className="inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm font-medium transition hover:bg-surface-2">Сбросить</Link>
-              <button type="submit" className="min-h-11 rounded-xl bg-accent-strong px-5 text-sm font-semibold text-white transition hover:bg-violet-600">Показать</button>
+              <button type="submit" className="min-h-11 rounded-xl bg-accent-strong px-5 text-sm font-semibold text-white transition hover:brightness-110">Показать</button>
             </div>
           </div>
         </form>
@@ -212,8 +212,8 @@ async function CatalogContent({
         </div>
 
         {catalogError ? (
-          <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-6 sm:p-8" role="alert">
-            <h2 className="font-semibold text-amber-200">Не удалось загрузить каталог</h2>
+          <div className="mt-4 rounded-2xl border border-warning/20 bg-warning/5 p-6 sm:p-8" role="alert">
+            <h2 className="font-semibold text-warning">Не удалось загрузить каталог</h2>
             <p className="mt-2 text-sm leading-6 text-text-secondary">Фильтры сохранены. Попробуй обновить страницу чуть позже.</p>
             <Link href={pageHref(page, currentFilters)} className="mt-4 inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm font-medium hover:bg-surface-2">Повторить</Link>
           </div>
@@ -223,7 +223,7 @@ async function CatalogContent({
             <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-text-secondary">
               Попробуй изменить запрос или сбросить часть фильтров.
             </p>
-            <Link href="/catalog" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-accent-strong px-5 text-sm font-semibold text-white hover:bg-violet-600">Сбросить фильтры</Link>
+            <Link href="/catalog" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-accent-strong px-5 text-sm font-semibold text-white hover:brightness-110">Сбросить фильтры</Link>
           </div>
         ) : (
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">

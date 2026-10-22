@@ -8,7 +8,7 @@ type RequestRow = { id: string; requester_id: string; addressee_id: string; stat
 type PublicProfile = { id: string; username: string | null; display_name: string | null; avatar_url: string | null };
 type BlockRow = { blocked_id: string };
 
-const button = "rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-sm font-semibold transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50";
+const button = "inline-flex min-h-11 items-center rounded-xl border border-border-subtle bg-surface-2 px-3 text-sm font-semibold transition hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50";
 
 export default function FriendsManager({ userId }: { userId: string }) {
   const [requests, setRequests] = useState<RequestRow[]>([]);
@@ -129,31 +129,117 @@ export default function FriendsManager({ userId }: { userId: string }) {
   const outgoing = requests.filter((row) => row.status === "pending" && row.requester_id === userId);
 
   return (
-    <main className="min-h-screen bg-[#080810] px-4 py-10 text-white sm:py-14">
+    <main className="min-h-screen bg-background px-4 py-10 text-foreground sm:py-14">
       <div className="mx-auto w-full max-w-3xl">
-        <Link href="/account" className="text-sm text-violet-300 hover:text-violet-200">← Аккаунт</Link>
+        <Link href="/account" className="text-sm text-accent hover:brightness-125">← Аккаунт</Link>
         <h1 className="mt-5 text-3xl font-black sm:text-4xl">Друзья</h1>
-        <p className="mt-2 text-sm leading-6 text-zinc-400">Поиск доступен по никнеймам пользователей с публичным профилем. Заявки и список друзей видны только участникам.</p>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">Поиск доступен по никнеймам пользователей с публичным профилем. Заявки и список друзей видны только участникам.</p>
         <form onSubmit={search} className="mt-7 flex gap-2">
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Найти по никнейму" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 outline-none focus:border-violet-400" />
-          <button className="rounded-xl bg-violet-500 px-4 py-3 font-bold transition hover:bg-violet-400">Найти</button>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Найти по никнейму" className="min-h-11 min-w-0 flex-1 rounded-xl border border-border-subtle bg-surface-1 px-4 text-foreground outline-none placeholder:text-text-muted focus:border-accent" />
+          <button className="min-h-11 shrink-0 rounded-xl bg-accent-strong px-4 font-bold text-white transition hover:brightness-110">Найти</button>
         </form>
-        {error && <p role="alert" className="mt-4 rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{error}</p>}
-        {notice && <p role="status" className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-200">{notice}</p>}
+        {error && <p role="alert" className="mt-4 rounded-xl border border-danger/20 bg-danger/10 p-3 text-sm text-danger">{error}</p>}
+        {notice && <p role="status" className="mt-4 rounded-xl border border-success/20 bg-success/10 p-3 text-sm text-success">{notice}</p>}
 
-        {results.length > 0 && <section className="mt-7"><h2 className="text-lg font-bold">Результаты поиска</h2><ul className="mt-3 grid gap-2">{results.map((profile) => {
-          const incomingRequest = requests.find((row) => row.requester_id === profile.id && row.addressee_id === userId && row.status === "pending");
-          const outgoingRequest = requests.find((row) => row.requester_id === userId && row.addressee_id === profile.id && row.status === "pending");
-          const isFriend = requests.some((row) => row.status === "accepted" && [row.requester_id, row.addressee_id].includes(profile.id));
-          return <li key={profile.id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4"><div className="min-w-0"><p className="truncate font-semibold">{profile.display_name || `@${profile.username}`}</p><p className="truncate text-sm text-zinc-500">@{profile.username}</p></div><div className="flex gap-2">{incomingRequest ? <button className={button} disabled={busyId === incomingRequest.id} onClick={() => void mutate(incomingRequest.id, "accept")}>Принять</button> : <button className={button} disabled={Boolean(outgoingRequest || isFriend) || busyId === profile.id} onClick={() => void mutate(profile.id, "send", profile.id)}>{isFriend ? "Уже друзья" : outgoingRequest ? "Заявка отправлена" : "Добавить"}</button>}<button className={button} disabled={busyId === profile.id} onClick={() => void blockUser(profile.id)}>Заблокировать</button></div></li>;
-        })}</ul></section>}
+        {results.length > 0 && (
+          <section className="mt-7">
+            <h2 className="text-lg font-bold">Результаты поиска</h2>
+            <ul className="mt-3 grid gap-2">
+              {results.map((profile) => {
+                const incomingRequest = requests.find((row) => row.requester_id === profile.id && row.addressee_id === userId && row.status === "pending");
+                const outgoingRequest = requests.find((row) => row.requester_id === userId && row.addressee_id === profile.id && row.status === "pending");
+                const isFriend = requests.some((row) => row.status === "accepted" && [row.requester_id, row.addressee_id].includes(profile.id));
+                return (
+                  <li key={profile.id} className="flex flex-col gap-3 rounded-2xl border border-border-subtle bg-surface-1 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{profile.display_name || `@${profile.username}`}</p>
+                      <p className="truncate text-sm text-text-muted">@{profile.username}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {incomingRequest ? (
+                        <button className={button} disabled={busyId === incomingRequest.id} onClick={() => void mutate(incomingRequest.id, "accept")}>Принять</button>
+                      ) : (
+                        <button className={button} disabled={Boolean(outgoingRequest || isFriend) || busyId === profile.id} onClick={() => void mutate(profile.id, "send", profile.id)}>
+                          {isFriend ? "Уже друзья" : outgoingRequest ? "Заявка отправлена" : "Добавить"}
+                        </button>
+                      )}
+                      <button className={button} disabled={busyId === profile.id} onClick={() => void blockUser(profile.id)}>Заблокировать</button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
 
-        {loading ? <p className="mt-8 text-sm text-zinc-500">Загружаем…</p> : <div className="mt-9 grid gap-8">
-          <section><h2 className="text-xl font-bold">Входящие заявки <span className="text-sm text-zinc-500">{incoming.length}</span></h2>{incoming.length ? <ul className="mt-3 grid gap-2">{incoming.map((row) => <li key={row.id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4"><span className="truncate font-semibold">{profileName(row.requester_id)}</span><div className="flex gap-2"><button className={button} disabled={busyId === row.id} onClick={() => void mutate(row.id, "accept")}>Принять</button><button className={button} disabled={busyId === row.id} onClick={() => void mutate(row.id, "reject")}>Отклонить</button></div></li>)}</ul> : <p className="mt-3 text-sm text-zinc-500">Новых заявок нет.</p>}</section>
-          <section><h2 className="text-xl font-bold">Мои друзья <span className="text-sm text-zinc-500">{accepted.length}</span></h2>{accepted.length ? <ul className="mt-3 grid gap-2">{accepted.map((row) => { const friendId = row.requester_id === userId ? row.addressee_id : row.requester_id; return <li key={row.id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4"><Link href={profiles[friendId]?.username ? `/u/${profiles[friendId].username}` : "/friends"} className="truncate font-semibold hover:text-violet-200">{profileName(friendId)}</Link><div className="flex gap-2"><button className={button} disabled={busyId === row.id} onClick={() => void mutate(row.id, "remove")}>Удалить</button><button className={button} disabled={busyId === friendId} onClick={() => void blockUser(friendId)}>Заблокировать</button></div></li>; })}</ul> : <p className="mt-3 text-sm text-zinc-500">Пока никого нет.</p>}</section>
-          <section><h2 className="text-xl font-bold">Отправленные заявки <span className="text-sm text-zinc-500">{outgoing.length}</span></h2>{outgoing.length ? <ul className="mt-3 grid gap-2">{outgoing.map((row) => <li key={row.id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4"><span className="truncate font-semibold">{profileName(row.addressee_id)}</span><button className={button} disabled={busyId === row.id} onClick={() => void mutate(row.id, "remove")}>Отменить</button></li>)}</ul> : <p className="mt-3 text-sm text-zinc-500">Отправленных заявок нет.</p>}</section>
-          <section><h2 className="text-xl font-bold">Заблокированные <span className="text-sm text-zinc-500">{blockedIds.length}</span></h2>{blockedIds.length ? <ul className="mt-3 grid gap-2">{blockedIds.map((id) => <li key={id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4"><span className="truncate font-semibold">{profileName(id)}</span><button className={button} disabled={busyId === id} onClick={() => void unblockUser(id)}>Разблокировать</button></li>)}</ul> : <p className="mt-3 text-sm text-zinc-500">Список блокировок пуст.</p>}</section>
-        </div>}
+        {loading ? <p className="mt-8 text-sm text-text-muted">Загружаем…</p> : (
+          <div className="mt-9 grid gap-8">
+            <section>
+              <h2 className="text-xl font-bold">Входящие заявки <span className="text-sm text-text-muted">{incoming.length}</span></h2>
+              {incoming.length ? (
+                <ul className="mt-3 grid gap-2">
+                  {incoming.map((row) => (
+                    <li key={row.id} className="flex flex-col gap-3 rounded-2xl border border-border-subtle bg-surface-1 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="truncate font-semibold">{profileName(row.requester_id)}</span>
+                      <div className="flex flex-wrap gap-2">
+                        <button className={button} disabled={busyId === row.id} onClick={() => void mutate(row.id, "accept")}>Принять</button>
+                        <button className={button} disabled={busyId === row.id} onClick={() => void mutate(row.id, "reject")}>Отклонить</button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="mt-3 text-sm text-text-muted">Новых заявок нет.</p>}
+            </section>
+
+            <section>
+              <h2 className="text-xl font-bold">Мои друзья <span className="text-sm text-text-muted">{accepted.length}</span></h2>
+              {accepted.length ? (
+                <ul className="mt-3 grid gap-2">
+                  {accepted.map((row) => {
+                    const friendId = row.requester_id === userId ? row.addressee_id : row.requester_id;
+                    return (
+                      <li key={row.id} className="flex flex-col gap-3 rounded-2xl border border-border-subtle bg-surface-1 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <Link href={profiles[friendId]?.username ? `/u/${profiles[friendId].username}` : "/friends"} className="truncate font-semibold hover:text-accent">{profileName(friendId)}</Link>
+                        <div className="flex flex-wrap gap-2">
+                          <button className={button} disabled={busyId === row.id} onClick={() => void mutate(row.id, "remove")}>Удалить</button>
+                          <button className={button} disabled={busyId === friendId} onClick={() => void blockUser(friendId)}>Заблокировать</button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : <p className="mt-3 text-sm text-text-muted">Пока никого нет.</p>}
+            </section>
+
+            <section>
+              <h2 className="text-xl font-bold">Отправленные заявки <span className="text-sm text-text-muted">{outgoing.length}</span></h2>
+              {outgoing.length ? (
+                <ul className="mt-3 grid gap-2">
+                  {outgoing.map((row) => (
+                    <li key={row.id} className="flex flex-col gap-3 rounded-2xl border border-border-subtle bg-surface-1 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="truncate font-semibold">{profileName(row.addressee_id)}</span>
+                      <button className={button} disabled={busyId === row.id} onClick={() => void mutate(row.id, "remove")}>Отменить</button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="mt-3 text-sm text-text-muted">Отправленных заявок нет.</p>}
+            </section>
+
+            <section>
+              <h2 className="text-xl font-bold">Заблокированные <span className="text-sm text-text-muted">{blockedIds.length}</span></h2>
+              {blockedIds.length ? (
+                <ul className="mt-3 grid gap-2">
+                  {blockedIds.map((id) => (
+                    <li key={id} className="flex flex-col gap-3 rounded-2xl border border-border-subtle bg-surface-1 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="truncate font-semibold">{profileName(id)}</span>
+                      <button className={button} disabled={busyId === id} onClick={() => void unblockUser(id)}>Разблокировать</button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="mt-3 text-sm text-text-muted">Список блокировок пуст.</p>}
+            </section>
+          </div>
+        )}
       </div>
     </main>
   );

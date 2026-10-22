@@ -32,6 +32,17 @@ function secureUrl(v: string) {
   if (v.length>2048) return false;
   try { const u=new URL(v); return u.protocol==="https:" && !!u.hostname && !u.username && !u.password; } catch { return false; }
 }
+function supportedVideoEmbedUrl(v: string) {
+  try {
+    const url = new URL(v);
+    if (url.protocol !== "https:" || url.username || url.password || url.port) return false;
+    if (url.hostname === "www.youtube-nocookie.com" && /^\/embed\/[\w-]{6,}$/.test(url.pathname)) return true;
+    if (url.hostname === "player.vimeo.com" && /^\/video\/\d+$/.test(url.pathname)) return true;
+    return (url.hostname === "rutube.ru" || url.hostname === "www.rutube.ru") && /^\/play\/embed\/[a-f\d]{32}\/?$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
 function isUuid(v: string) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v); }
 
 export async function createTitle(fd: FormData) {
@@ -338,6 +349,7 @@ export async function addVideoSource(fd: FormData) {
   const db=await admin(), title_id=val(fd,"title_id",36), episode_id=val(fd,"episode_id",36), source_url=val(fd,"source_url",2048);
   const source_format=val(fd,"source_format",20), provider_name=val(fd,"provider_name",120), language_code=val(fd,"language_code",35), quality_label=val(fd,"quality_label",80);
   if(!isUuid(title_id)||(episode_id&&!isUuid(episode_id))||!secureUrl(source_url)||!["hls","dash","mp4","embed"].includes(source_format))fail();
+  if(source_format==="embed"&&!supportedVideoEmbedUrl(source_url))fail("unsupported-embed");
   await ensureType(db,title_id,videoTypes);
   if(fd.get("rights_confirmed")!=="yes")fail("rights");
   if(episode_id){const {data,error}=await db.from("title_episodes").select("id").eq("id",episode_id).eq("title_id",title_id).maybeSingle();if(error||!data)fail();}

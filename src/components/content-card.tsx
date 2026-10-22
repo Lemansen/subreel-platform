@@ -17,7 +17,7 @@ export function ContentCard({ title }: { title: CatalogCardTitle }) {
       href={`/title/${title.slug}`}
       className="group overflow-hidden rounded-2xl border border-border-subtle bg-surface-1 transition hover:-translate-y-0.5 hover:border-accent/50 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent"
     >
-      <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-violet-950 via-[#171321] to-[#0e0e14]">
+      <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-accent-strong via-surface-1 to-background">
         {title.cover_url ? (
           <div
             role="img"

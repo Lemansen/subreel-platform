@@ -149,7 +149,15 @@ export async function duplicateTitle(titleId: string) {
   if (!uuidPattern.test(titleId)) return { ok: false as const, error: "Некорректный идентификатор тайтла." };
   const { data: source, error } = await db.from("titles").select("name,original_name,slug,description,cover_url,banner_url,content_type,release_year,franchise_id").eq("id", titleId).maybeSingle();
   if (error || !source) return { ok: false as const, error: "Исходный тайтл не найден." };
-  const { data: genres } = await db.from("title_genres").select("genre_id").eq("title_id", titleId);
+  const [genresRes,seasonsRes,episodesRes,editionsRes,volumesRes,chaptersRes] = await Promise.all([
+    db.from("title_genres").select("genre_id").eq("title_id", titleId),
+    db.from("title_seasons").select("id,season_number,name,description,status").eq("title_id", titleId).order("season_number"),
+    db.from("title_episodes").select("season_id,episode_number,sort_order,name,description,duration_seconds,release_date,status").eq("title_id", titleId).order("sort_order"),
+    db.from("title_editions").select("id,edition_kind,edition_number,name,language_code,description,status").eq("title_id", titleId).order("edition_number"),
+    db.from("title_volumes").select("id,edition_id,volume_number,name,description,status").eq("title_id", titleId).order("volume_number"),
+    db.from("title_chapters").select("edition_id,volume_id,chapter_number,chapter_label,sort_order,name,description,release_date,status").eq("title_id", titleId).order("sort_order"),
+  ]);
+  if ([genresRes,seasonsRes,episodesRes,editionsRes,volumesRes,chaptersRes].some((result)=>result.error)) return {ok:false as const,error:"Не удалось прочитать исходную структуру. Копия не создана."};
   const baseSlug = `${source.slug}-copy`.slice(0, 155).replace(/-+$/, "");
   let createdId: string | null = null;
   let createdSlug = "";
@@ -169,11 +177,30 @@ export async function duplicateTitle(titleId: string) {
     }
   }
   if (!createdId) return { ok: false as const, error: "Не удалось подобрать свободный slug для копии." };
-  if (genres?.length) {
-    const { error: genreError } = await db.from("title_genres").insert(genres.map(({ genre_id }) => ({ title_id: createdId!, genre_id })));
-    if (genreError) console.error("[admin titles] duplicate genres:", genreError.message);
+
+  try {
+    const copyId=createdId;
+    const genres=genresRes.data??[],seasons=seasonsRes.data??[],episodes=episodesRes.data??[],editions=editionsRes.data??[],volumes=volumesRes.data??[],chapters=chaptersRes.data??[];
+    if(genres.length){const {error:copyError}=await db.from("title_genres").insert(genres.map(({genre_id})=>({title_id:copyId,genre_id})));if(copyError)throw copyError;}
+    const seasonIds=new Map<string,string>();
+    for(const season of seasons){const {id:sourceSeasonId,...seasonData}=season;const {data,error:copyError}=await db.from("title_seasons").insert({title_id:copyId,...seasonData}).select("id").single();if(copyError||!data)throw copyError??new Error("season copy failed");seasonIds.set(sourceSeasonId,data.id);}
+    if(episodes.length){const rows=episodes.map(({season_id,...episode})=>({title_id:copyId,...episode,season_id:season_id?seasonIds.get(season_id)??null:null}));const {error:copyError}=await db.from("title_episodes").insert(rows);if(copyError)throw copyError;}
+    const editionIds=new Map<string,string>();
+    for(const edition of editions){const {id:sourceEditionId,...editionData}=edition;const {data,error:copyError}=await db.from("title_editions").insert({title_id:copyId,...editionData}).select("id").single();if(copyError||!data)throw copyError??new Error("edition copy failed");editionIds.set(sourceEditionId,data.id);}
+    const volumeIds=new Map<string,string>();
+    for(const volume of volumes){const {id:sourceVolumeId,...volumeData}=volume;const {data,error:copyError}=await db.from("title_volumes").insert({title_id:copyId,...volumeData,edition_id:volume.edition_id?editionIds.get(volume.edition_id)??null:null}).select("id").single();if(copyError||!data)throw copyError??new Error("volume copy failed");volumeIds.set(sourceVolumeId,data.id);}
+    if(chapters.length){
+      const rows=chapters.map(({edition_id,volume_id,...chapter})=>({...chapter,title_id:copyId,edition_id:edition_id?editionIds.get(edition_id)??null:null,volume_id:volume_id?volumeIds.get(volume_id)??null:null}));
+      const {error:copyError}=await db.from("title_chapters").insert(rows);if(copyError)throw copyError;
+    }
+  } catch (copyError) {
+    console.error("[admin titles] duplicate structure:",copyError instanceof Error?copyError.message:"copy failed");
+    const {error:cleanupError}=await db.from("titles").delete().eq("id",createdId);
+    if(cleanupError)console.error("[admin titles] duplicate cleanup:",cleanupError.message);
+    return {ok:false as const,error:cleanupError?"Копирование структуры не завершилось; черновик создан и требует проверки в списке тайтлов.":"Не удалось скопировать структуру. Неполная копия удалена."};
   }
   revalidatePath("/admin/titles");
+  revalidatePath("/admin");
   return { ok: true as const, id: createdId, slug: createdSlug };
 }
 

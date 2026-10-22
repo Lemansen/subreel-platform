@@ -69,7 +69,7 @@ export async function SiteHeader({ active }: { active?: "catalog" | "home" }) {
             type="search"
             name="q"
             placeholder="Найти произведение"
-            className="h-10 w-full rounded-xl border border-border-subtle bg-surface-1 px-3 text-sm text-white outline-none placeholder:text-text-muted focus:border-accent"
+            className="h-11 w-full rounded-xl border border-border-subtle bg-surface-1 px-3 text-sm text-white outline-none placeholder:text-text-muted focus:border-accent"
           />
           <button className="sr-only" type="submit">Найти</button>
         </form>
@@ -77,11 +77,41 @@ export async function SiteHeader({ active }: { active?: "catalog" | "home" }) {
         <Link
           href={accountLabel ? "/account" : "/login"}
           aria-label={accountLabel ? `Профиль: ${accountLabel}` : "Войти"}
-          className="shrink-0 rounded-xl border border-border-subtle px-3 py-2 text-sm font-medium transition hover:border-accent/60 hover:bg-surface-1 sm:px-4"
+          title={accountLabel ?? "Войти"}
+          className="min-h-11 max-w-32 shrink-0 truncate rounded-xl border border-border-subtle px-3 py-2 text-sm font-medium transition hover:border-accent/60 hover:bg-surface-1 sm:max-w-48 sm:px-4"
         >
           {accountLabel ?? "Войти"}
         </Link>
       </div>
+      <nav
+        aria-label="Мобильная навигация"
+        className="border-t border-border-subtle px-4 md:hidden"
+      >
+        <div className="mx-auto flex max-w-7xl items-center gap-2 text-sm">
+          <Link
+            href="/"
+            aria-current={active === "home" ? "page" : undefined}
+            className={`inline-flex min-h-11 items-center rounded-lg px-3 transition hover:bg-surface-1 ${active === "home" ? "text-white" : "text-text-secondary"}`}
+          >
+            Главная
+          </Link>
+          <Link
+            href="/catalog"
+            aria-current={active === "catalog" ? "page" : undefined}
+            className={`inline-flex min-h-11 items-center rounded-lg px-3 transition hover:bg-surface-1 ${active === "catalog" ? "text-white" : "text-text-secondary"}`}
+          >
+            Каталог
+          </Link>
+          {isCatalogAdmin && (
+            <Link
+              href="/admin"
+              className="inline-flex min-h-11 items-center rounded-lg px-3 text-text-secondary transition hover:bg-surface-1 hover:text-white"
+            >
+              Управление
+            </Link>
+          )}
+        </div>
+      </nav>
     </header>
   );
 }

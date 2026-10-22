@@ -25,7 +25,7 @@ export function LibraryControl({ titleId, slug, signedIn, initialStatus, initial
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
 
-  if (!signedIn) return <Link href={`/login?next=${encodeURIComponent(`/title/${slug}`)}`} className="inline-flex min-h-11 items-center rounded-xl border border-white/10 px-4 text-sm font-semibold hover:bg-white/[0.05]">Войди, чтобы сохранить в библиотеку</Link>;
+  if (!signedIn) return <Link href={`/login?next=${encodeURIComponent(`/title/${slug}`)}`} className="inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm font-semibold hover:bg-surface-2">Войди, чтобы сохранить в библиотеку</Link>;
 
   function save() {
     setMessage("");
@@ -46,20 +46,20 @@ export function LibraryControl({ titleId, slug, signedIn, initialStatus, initial
   }
 
   return (
-    <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+    <div className="mt-5 rounded-2xl border border-border-subtle bg-surface-1 p-4">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-zinc-300">Моя библиотека
-          <select value={status} onChange={(event) => setStatus(event.target.value as LibraryStatus)} className="min-h-10 rounded-lg border border-white/10 bg-[#111119] px-3 text-white">
+        <label className="flex items-center gap-2 text-sm text-text-secondary">Моя библиотека
+          <select value={status} onChange={(event) => setStatus(event.target.value as LibraryStatus)} className="min-h-11 rounded-lg border border-border-subtle bg-surface-1 px-3 text-foreground">
             {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
-        <button type="button" aria-pressed={favorite} onClick={() => setFavorite((value) => !value)} className={`min-h-10 rounded-lg border px-3 text-sm transition ${favorite ? "border-violet-400/40 bg-violet-500/15 text-violet-200" : "border-white/10 text-zinc-300 hover:bg-white/[0.05]"}`}>
+        <button type="button" aria-pressed={favorite} onClick={() => setFavorite((value) => !value)} className={`min-h-11 rounded-lg border px-3 text-sm transition ${favorite ? "border-accent/40 bg-accent/15 text-accent" : "border-border-subtle text-text-secondary hover:bg-surface-2"}`}>
           {favorite ? "♥ В избранном" : "♡ В избранное"}
         </button>
-        <button type="button" disabled={pending} onClick={save} className="min-h-10 rounded-lg bg-violet-500 px-4 text-sm font-semibold hover:bg-violet-400 disabled:opacity-50">{pending ? "Сохраняю…" : saved ? "Сохранить" : "Добавить"}</button>
-        {saved && <button type="button" disabled={pending} onClick={remove} className="min-h-10 rounded-lg border border-white/10 px-3 text-sm text-zinc-400 hover:text-white disabled:opacity-50">Убрать</button>}
+        <button type="button" disabled={pending} onClick={save} className="min-h-11 rounded-lg bg-accent-strong px-4 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">{pending ? "Сохраняю…" : saved ? "Сохранить" : "Добавить"}</button>
+        {saved && <button type="button" disabled={pending} onClick={remove} className="min-h-11 rounded-lg border border-border-subtle px-3 text-sm text-text-secondary hover:text-foreground disabled:opacity-50">Убрать</button>}
       </div>
-      {message && <p role="alert" className="mt-3 text-sm text-red-300">{message}</p>}
+      {message && <p role="alert" className="mt-3 text-sm text-danger">{message}</p>}
     </div>
   );
 }

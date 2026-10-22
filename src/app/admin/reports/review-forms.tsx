@@ -1,0 +1,15 @@
+"use client";
+import {useState} from "react";
+import {useRouter} from "next/navigation";
+import {reviewContentReport,reviewModerationAppeal} from "./actions";
+
+export function ReportReviewForm({id,status}:{id:string;status:string}){
+ const router=useRouter(),[next,setNext]=useState(status),[note,setNote]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState(false);
+ async function submit(event:React.FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setMessage("");try{const result=await reviewContentReport(id,next,note);if(!result.ok){setMessage(result.error);return;}setMessage("Решение сохранено.");router.refresh();}catch{setMessage("Не удалось сохранить решение.");}finally{setBusy(false);}}
+ return <form onSubmit={submit} className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto]"><select value={next} onChange={e=>setNext(e.target.value)} className="rounded-lg border border-white/10 bg-[#111119] px-3 py-2 text-sm"><option value="open">Новая</option><option value="in_review">На рассмотрении</option><option value="resolved">Решена</option><option value="dismissed">Отклонена</option></select><input value={note} onChange={e=>setNote(e.target.value)} maxLength={2000} placeholder="Комментарий модерации (необязательно)" className="rounded-lg border border-white/10 bg-[#111119] px-3 py-2 text-sm"/><button disabled={busy} className="rounded-lg border border-violet-300/20 px-4 py-2 text-sm text-violet-200 disabled:opacity-50">{busy?"Сохраняем…":"Сохранить"}</button>{message&&<p role="status" className="text-xs text-amber-200 sm:col-span-3">{message}</p>}</form>;
+}
+export function AppealReviewForm({id,status}:{id:string;status:string}){
+ const router=useRouter(),[next,setNext]=useState(status),[note,setNote]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState(false);
+ async function submit(event:React.FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setMessage("");try{const result=await reviewModerationAppeal(id,next,note);if(!result.ok){setMessage(result.error);return;}setMessage("Решение сохранено.");router.refresh();}catch{setMessage("Не удалось сохранить решение.");}finally{setBusy(false);}}
+ return <form onSubmit={submit} className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto]"><select value={next} onChange={e=>setNext(e.target.value)} className="rounded-lg border border-white/10 bg-[#111119] px-3 py-2 text-sm"><option value="open">Новая</option><option value="in_review">На рассмотрении</option><option value="accepted">Принять и снять ограничение</option><option value="rejected">Отклонить</option></select><input value={note} onChange={e=>setNote(e.target.value)} maxLength={2000} placeholder="Ответ пользователю (необязательно)" className="rounded-lg border border-white/10 bg-[#111119] px-3 py-2 text-sm"/><button disabled={busy} className="rounded-lg border border-violet-300/20 px-4 py-2 text-sm text-violet-200 disabled:opacity-50">{busy?"Сохраняем…":"Сохранить"}</button>{message&&<p role="status" className="text-xs text-amber-200 sm:col-span-3">{message}</p>}</form>;
+}

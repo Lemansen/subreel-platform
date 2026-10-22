@@ -29,7 +29,7 @@ export function VideoPlayback({ titleId, episodes, sources, initialProgress, can
   return (
     <div className="bg-black">
       {episodes.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-surface-1 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 border-b border-border-subtle bg-surface-1 px-4 py-3">
           <label htmlFor="watch-episode" className="text-sm text-text-secondary">Серия</label>
           <select id="watch-episode" value={episodeId} onChange={(event) => { setEpisodeId(event.target.value); setSourceId(""); }} className="min-h-10 min-w-48 rounded-lg border border-border-subtle bg-background px-3 text-sm text-white">
             <option value="title">Весь тайтл</option>
@@ -39,9 +39,9 @@ export function VideoPlayback({ titleId, episodes, sources, initialProgress, can
       )}
       {options.length > 0 ? (
         <>
-          {options.length > 1 && <div className="flex flex-wrap items-center gap-3 px-4 py-3"><label htmlFor="watch-source" className="text-sm text-text-secondary">Источник</label><select id="watch-source" value={selected?.id} onChange={(event) => setSourceId(event.target.value)} className="min-h-10 min-w-48 rounded-lg border border-white/10 bg-[#111119] px-3 text-sm text-white">{options.map((source) => <option key={source.id} value={source.id}>{[source.provider_name, source.language_code, source.quality_label, source.source_format.toUpperCase()].filter(Boolean).join(" · ")}</option>)}</select></div>}
+          {options.length > 1 && <div className="flex flex-wrap items-center gap-3 px-4 py-3"><label htmlFor="watch-source" className="text-sm text-text-secondary">Источник</label><select id="watch-source" value={selected?.id} onChange={(event) => setSourceId(event.target.value)} className="min-h-11 min-w-48 rounded-lg border border-border-subtle bg-surface-1 px-3 text-sm text-foreground">{options.map((source) => <option key={source.id} value={source.id}>{[source.provider_name, source.language_code, source.quality_label, source.source_format.toUpperCase()].filter(Boolean).join(" · ")}</option>)}</select></div>}
           <PlaybackMedia key={`${selected?.id}-${activeEpisodeId ?? "title"}`} source={selected} titleId={titleId} episodeId={activeEpisodeId} progress={progress} canSaveProgress={canSaveProgress} />
-          <p className="px-4 py-2 text-xs text-zinc-500">{selected?.source_format === "embed" ? "Безопасный embed-плеер. Позиция воспроизведения у внешнего провайдера не синхронизируется." : progress && !progress.completed_at ? `Продолжение с ${formatTime(progress.position_seconds)}` : selected?.source_format === "hls" || selected?.source_format === "dash" ? "Если поток не запускается, проверь доступность источника и попробуй обновить страницу." : "Источник проверен редактором SubReel."}</p>
+          <p className="px-4 py-2 text-xs text-text-muted">{selected?.source_format === "embed" ? "Безопасный embed-плеер. Позиция воспроизведения у внешнего провайдера не синхронизируется." : progress && !progress.completed_at ? `Продолжение с ${formatTime(progress.position_seconds)}` : selected?.source_format === "hls" || selected?.source_format === "dash" ? "Если поток не запускается, проверь доступность источника и попробуй обновить страницу." : "Источник проверен редактором SubReel."}</p>
         </>
       ) : (
         <div className="flex aspect-video flex-col items-center justify-center px-6 text-center">
@@ -120,19 +120,48 @@ function PlaybackMedia({ source, titleId, episodeId, progress, canSaveProgress }
   }
 
   if (source?.source_format === "embed") {
-    const embedUrl = getTrustedEmbedUrl(source.source_url);
-    return embedUrl ? <div className="aspect-video bg-black"><iframe title="Видеоплеер" src={embedUrl} className="h-full w-full border-0" sandbox="allow-scripts allow-same-origin allow-presentation" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" /></div> : <div className="grid aspect-video place-items-center px-6 text-center"><div><p className="font-semibold">Провайдер не поддерживается</p><p className="mt-2 text-sm text-text-secondary">Встроенный режим разрешён только для YouTube NoCookie и Vimeo.</p></div></div>;
+    const embed = getTrustedEmbedUrl(source.source_url);
+    return embed ? (
+      <div className="aspect-video bg-black">
+        <iframe
+          title="Видеоплеер"
+          src={embed.url}
+          className="h-full w-full border-0"
+          sandbox="allow-scripts allow-same-origin allow-presentation"
+          allow={embed.allow}
+          allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      </div>
+    ) : (
+      <div className="grid aspect-video place-items-center px-6 text-center">
+        <div>
+          <p className="font-semibold">Провайдер не поддерживается</p>
+          <p className="mt-2 text-sm text-text-secondary">Встроенный режим разрешён только для YouTube NoCookie, Vimeo и RuTube.</p>
+        </div>
+      </div>
+    );
   }
 
-  return <div className="relative bg-black"><video ref={videoRef} className="aspect-video w-full" controls playsInline preload="metadata" src={source?.source_format === "mp4" ? source.source_url : undefined} onLoadedMetadata={(event) => restore(event.currentTarget)} onTimeUpdate={(event) => persist(event.currentTarget)} onPause={(event) => { if (!event.currentTarget.ended) persist(event.currentTarget, false, true); }} onEnded={(event) => persist(event.currentTarget, true, true)} />{error && <p role="alert" className="absolute inset-x-0 bottom-12 mx-auto w-fit rounded-lg bg-black/85 px-4 py-2 text-sm text-red-200">{error}</p>}</div>;
+  return <div className="relative bg-black"><video ref={videoRef} className="aspect-video w-full" controls playsInline preload="metadata" src={source?.source_format === "mp4" ? source.source_url : undefined} onLoadedMetadata={(event) => restore(event.currentTarget)} onTimeUpdate={(event) => persist(event.currentTarget)} onPause={(event) => { if (!event.currentTarget.ended) persist(event.currentTarget, false, true); }} onEnded={(event) => persist(event.currentTarget, true, true)} />{error && <p role="alert" className="absolute inset-x-0 bottom-12 mx-auto w-fit rounded-lg bg-black/85 px-4 py-2 text-sm text-danger">{error}</p>}</div>;
 }
 
-function getTrustedEmbedUrl(rawUrl: string) {
+function getTrustedEmbedUrl(rawUrl: string): { url: string; allow: string } | null {
   try {
     const url = new URL(rawUrl);
     if (url.protocol !== "https:" || url.username || url.password || url.port) return null;
-    if (url.hostname === "www.youtube-nocookie.com" && /^\/embed\/[\w-]{6,}$/.test(url.pathname)) return url.toString();
-    if (url.hostname === "player.vimeo.com" && /^\/video\/\d+$/.test(url.pathname)) return url.toString();
+    if (url.hostname === "www.youtube-nocookie.com" && /^\/embed\/[\w-]{6,}$/.test(url.pathname)) {
+      return { url: url.toString(), allow: "autoplay; fullscreen; picture-in-picture" };
+    }
+    if (url.hostname === "player.vimeo.com" && /^\/video\/\d+$/.test(url.pathname)) {
+      return { url: url.toString(), allow: "autoplay; fullscreen; picture-in-picture" };
+    }
+    if (
+      (url.hostname === "rutube.ru" || url.hostname === "www.rutube.ru") &&
+      /^\/play\/embed\/[a-f\d]{32}\/?$/i.test(url.pathname)
+    ) {
+      return { url: url.toString(), allow: "clipboard-write; autoplay; fullscreen; picture-in-picture" };
+    }
     return null;
   } catch {
     return null;

@@ -8,10 +8,14 @@
   --surface-2: #181821;
   --surface-hover: #20202b;
   --text-secondary: #aaa7b4;
-  --text-muted: #777481;
+  --text-muted: #85828f;
   --border-subtle: #292833;
   --accent: #a78bfa;
   --accent-strong: #7c3aed;
+  --accent-secondary: #e879f9;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
 }
 
 @theme inline {
@@ -25,6 +29,10 @@
   --color-border-subtle: var(--border-subtle);
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -44,3 +52,9 @@ body {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+
+@keyframes wizard-step-forward { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes wizard-step-backward { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }
+.wizard-step-enter { animation: wizard-step-forward 220ms ease-out both; }
+.wizard-step-backward { animation-name: wizard-step-backward; }
+@media (prefers-reduced-motion: reduce) { .wizard-step-enter { animation: none; } }

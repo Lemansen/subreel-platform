@@ -226,6 +226,14 @@ async function HomeContent() {
               </div>
             ))}
           </div>
+          <div className="mt-8 flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-[#0d0d13] p-5 sm:flex-row sm:items-center">
+            <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer" aria-label="The Movie Database (TMDB)">
+              <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="The Movie Database (TMDB)" className="h-auto w-20"/>
+            </a>
+            <p className="max-w-2xl text-sm leading-6 text-zinc-400">
+              This product uses the TMDB API but is not endorsed or certified by TMDB.
+            </p>
+          </div>
         </div>
       </section>
 

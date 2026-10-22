@@ -17,10 +17,7 @@
    ```
    Заполните `NEXT_PUBLIC_SUPABASE_URL` и `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
    (Project Settings → API).
-3. Примените миграции в SQL Editor Supabase строго по порядку:
-   - `supabase/sql/001_catalog.sql`
-   - `supabase/sql/002_profiles.sql`
-   - `supabase/sql/003_audit_fixes.sql`
+3. Для нового проекта примените все SQL-миграции из `supabase/sql` в порядке имён: от `001_catalog.sql` до `027_catalog_import_retry_atomic.sql`. Выполняйте файлы по одному в Supabase SQL Editor. Не пропускайте промежуточные номера: последующие миграции опираются на предыдущие. Описание схемы и известных проверок находится в [`docs/database.md`](docs/database.md). Текущие SQL-файлы ещё не оформлены как история Supabase CLI, поэтому не запускайте `supabase db push` для этого каталога.
 4. В Supabase → Authentication → URL Configuration добавьте
    `http://localhost:3000/auth/callback` в Redirect URLs.
    Для сброса пароля нужен настроенный SMTP.

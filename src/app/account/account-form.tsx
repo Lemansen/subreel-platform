@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { AppealForm } from "./appeal-form";
 
 type Profile = {
   username: string | null;
@@ -11,6 +12,8 @@ type Profile = {
   avatar_url: string | null;
   bio: string | null;
   is_public: boolean;
+  is_suspended: boolean;
+  suspension_reason: string | null;
 };
 
 export default function AccountForm() {
@@ -24,6 +27,9 @@ export default function AccountForm() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [bio, setBio] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [isSuspended, setIsSuspended] = useState(false);
+  const [suspensionReason, setSuspensionReason] = useState<string | null>(null);
+  const [appealStatus, setAppealStatus] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,7 +59,7 @@ export default function AccountForm() {
 
         const { data, error: profileError } = await supabase
           .from("profiles")
-          .select("username, display_name, avatar_url, bio, is_public")
+          .select("username, display_name, avatar_url, bio, is_public, is_suspended, suspension_reason")
           .eq("id", user.id)
           .maybeSingle();
 
@@ -70,7 +76,7 @@ export default function AccountForm() {
           const { data: created, error: createError } = await supabase
             .from("profiles")
             .insert({ id: user.id })
-            .select("username, display_name, avatar_url, bio, is_public")
+            .select("username, display_name, avatar_url, bio, is_public, is_suspended, suspension_reason")
             .single();
 
           if (!active) return;
@@ -89,6 +95,12 @@ export default function AccountForm() {
         setAvatarUrl(profile.avatar_url ?? "");
         setBio(profile.bio ?? "");
         setIsPublic(profile.is_public ?? false);
+        setIsSuspended(profile.is_suspended ?? false);
+        setSuspensionReason(profile.suspension_reason ?? null);
+        if (profile.is_suspended) {
+          const { data: appeal } = await supabase.from("moderation_appeals").select("status").eq("user_id", user.id).in("status", ["open", "in_review"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
+          if (active) setAppealStatus(appeal?.status ?? null);
+        }
       } catch {
         if (active) {
           setError("Не удалось подключиться к Supabase.");
@@ -209,13 +221,13 @@ export default function AccountForm() {
   }
 
   return (
-    <main className="min-h-screen bg-[#080810] px-4 py-12 text-white">
-      <section className="mx-auto w-full max-w-2xl rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-purple-950/20 sm:p-9">
-        <Link href="/" className="text-sm text-white/50 transition hover:text-white">
+    <main className="min-h-screen bg-background px-4 py-12 text-foreground">
+      <section className="mx-auto w-full max-w-2xl rounded-3xl border border-border-subtle bg-surface-1 p-6 shadow-2xl shadow-black/20 sm:p-9">
+        <Link href="/" className="text-sm text-text-secondary transition hover:text-foreground">
           ← На главную
         </Link>
 
-        <p className="mt-8 text-sm font-semibold tracking-[0.25em] text-purple-300">
+        <p className="mt-8 text-sm font-semibold tracking-[0.25em] text-accent">
           SUBREEL
         </p>
         <h1 className="mt-3 text-3xl font-bold tracking-tight">
@@ -223,53 +235,55 @@ export default function AccountForm() {
         </h1>
 
         {loading ? (
-          <p className="mt-6 text-sm text-white/60">Загружаем профиль...</p>
+          <p className="mt-6 text-sm text-text-secondary">Загружаем профиль...</p>
         ) : !userId ? (
           <div className="mt-6 space-y-4">
-            <p className="text-sm leading-6 text-white/60">
+            <p className="text-sm leading-6 text-text-secondary">
               Активная сессия не найдена. Войди или создай аккаунт, чтобы продолжить.
             </p>
             <Link
               href="/login"
-              className="block rounded-xl bg-purple-500 px-4 py-3 text-center font-semibold transition hover:bg-purple-400"
+              className="block min-h-11 rounded-xl bg-accent-strong px-4 py-3 text-center font-semibold text-white transition hover:brightness-110"
             >
               Войти
             </Link>
             <Link
               href="/register"
-              className="block text-center text-sm text-purple-300 hover:text-purple-200"
+              className="mt-2 inline-flex min-h-11 w-full items-center justify-center text-center text-sm text-accent hover:brightness-125"
             >
               Создать аккаунт
             </Link>
           </div>
         ) : (
           <>
-            <div className="mt-6 rounded-xl border border-white/10 bg-black/20 p-4">
-              <p className="text-xs text-white/45">Аккаунт</p>
+            <div className="mt-6 rounded-xl border border-border-subtle bg-surface-2 p-4">
+              <p className="text-xs text-text-muted">Аккаунт</p>
               <p className="mt-1 break-all text-sm">{email || "Email не указан"}</p>
             </div>
 
-            <Link href="/account/library" className="mt-4 inline-flex min-h-11 items-center rounded-xl border border-white/10 px-4 text-sm font-semibold transition hover:border-violet-400/40 hover:bg-white/[0.04]">
+            <Link href="/account/library" className="mt-4 inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm font-semibold transition hover:border-accent/40 hover:bg-surface-2">
               Открыть мою библиотеку
             </Link>
-            <Link href="/friends" className="ml-2 inline-flex min-h-11 items-center rounded-xl border border-white/10 px-4 text-sm font-semibold transition hover:border-violet-400/40 hover:bg-white/[0.04]">
+            <Link href="/friends" className="ml-2 inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm font-semibold transition hover:border-accent/40 hover:bg-surface-2">
               Друзья
             </Link>
+
+            {isSuspended && <AppealForm reason={suspensionReason} existingStatus={appealStatus} onSubmitted={() => setAppealStatus("open")} />}
 
             {avatarUrl && (
               <div className="mt-5 flex items-center gap-4">
                 <img
                   src={avatarUrl}
                   alt="Предпросмотр аватара"
-                  className="h-16 w-16 rounded-full border border-white/15 object-cover"
+                  className="h-16 w-16 rounded-full border border-border-subtle object-cover"
                 />
-                <p className="text-sm text-white/50">Предпросмотр аватара</p>
+                <p className="text-sm text-text-secondary">Предпросмотр аватара</p>
               </div>
             )}
 
             <form onSubmit={handleSave} className="mt-6 space-y-5">
               <div>
-                <label htmlFor="username" className="mb-2 block text-sm text-white/75">
+                <label htmlFor="username" className="mb-2 block text-sm text-text-secondary">
                   Никнейм
                 </label>
                 <input
@@ -280,15 +294,15 @@ export default function AccountForm() {
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
                   placeholder="например, subreel_user"
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none transition placeholder:text-white/25 focus:border-purple-400"
+                  className="min-h-11 w-full rounded-xl border border-border-subtle bg-surface-2 px-4 py-3 text-foreground outline-none transition placeholder:text-text-muted focus:border-accent"
                 />
-                <p className="mt-2 text-xs text-white/40">
+                <p className="mt-2 text-xs text-text-muted">
                   3–24 символа: латинские буквы, цифры и подчёркивание.
                 </p>
               </div>
 
               <div>
-                <label htmlFor="displayName" className="mb-2 block text-sm text-white/75">
+                <label htmlFor="displayName" className="mb-2 block text-sm text-text-secondary">
                   Отображаемое имя
                 </label>
                 <input
@@ -299,12 +313,12 @@ export default function AccountForm() {
                   value={displayName}
                   onChange={(event) => setDisplayName(event.target.value)}
                   placeholder="Как тебя будут видеть другие"
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none transition placeholder:text-white/25 focus:border-purple-400"
+                  className="min-h-11 w-full rounded-xl border border-border-subtle bg-surface-2 px-4 py-3 text-foreground outline-none transition placeholder:text-text-muted focus:border-accent"
                 />
               </div>
 
               <div>
-                <label htmlFor="avatarUrl" className="mb-2 block text-sm text-white/75">
+                <label htmlFor="avatarUrl" className="mb-2 block text-sm text-text-secondary">
                   Ссылка на аватар
                 </label>
                 <input
@@ -315,12 +329,12 @@ export default function AccountForm() {
                   value={avatarUrl}
                   onChange={(event) => setAvatarUrl(event.target.value)}
                   placeholder="https://example.com/avatar.jpg"
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none transition placeholder:text-white/25 focus:border-purple-400"
+                  className="min-h-11 w-full rounded-xl border border-border-subtle bg-surface-2 px-4 py-3 text-foreground outline-none transition placeholder:text-text-muted focus:border-accent"
                 />
               </div>
 
               <div>
-                <label htmlFor="bio" className="mb-2 block text-sm text-white/75">
+                <label htmlFor="bio" className="mb-2 block text-sm text-text-secondary">
                   О себе
                 </label>
                 <textarea
@@ -331,42 +345,42 @@ export default function AccountForm() {
                   value={bio}
                   onChange={(event) => setBio(event.target.value)}
                   placeholder="Расскажи немного о себе..."
-                  className="w-full resize-y rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none transition placeholder:text-white/25 focus:border-purple-400"
+                  className="min-h-28 w-full resize-y rounded-xl border border-border-subtle bg-surface-2 px-4 py-3 text-foreground outline-none transition placeholder:text-text-muted focus:border-accent"
                 />
-                <p className="mt-2 text-right text-xs text-white/40">
+                <p className="mt-2 text-right text-xs text-text-muted">
                   {bio.length}/300
                 </p>
               </div>
 
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-black/20 p-4 transition hover:border-purple-400/40">
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border-subtle bg-surface-2 p-4 transition hover:border-accent/40">
                 <input
                   type="checkbox"
                   checked={isPublic}
                   onChange={(event) => setIsPublic(event.target.checked)}
-                  className="mt-1 h-4 w-4 accent-purple-500"
+                  className="mt-1 h-5 w-5 accent-accent"
                 />
                 <span>
-                  <span className="block text-sm font-medium text-white/85">Публичный профиль</span>
-                  <span className="mt-1 block text-xs leading-5 text-white/50">
+                  <span className="block text-sm font-medium text-foreground">Публичный профиль</span>
+                  <span className="mt-1 block text-xs leading-5 text-text-secondary">
                     Другие смогут открыть страницу по никнейму и увидеть имя, аватар и описание. Библиотека и прогресс остаются приватными.
                   </span>
                 </span>
               </label>
 
               {isPublic && savedUsername && username.trim().toLowerCase() === savedUsername && (
-                <Link href={`/u/${encodeURIComponent(savedUsername)}`} className="inline-flex text-sm text-purple-300 transition hover:text-purple-200">
+                <Link href={`/u/${encodeURIComponent(savedUsername)}`} className="inline-flex min-h-11 items-center text-sm text-accent transition hover:brightness-125">
                   Открыть публичный профиль →
                 </Link>
               )}
 
               {error && (
-                <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+                <p role="alert" className="rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
                   {error}
                 </p>
               )}
 
               {notice && (
-                <p role="status" className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
+                <p role="status" className="rounded-xl border border-success/20 bg-success/10 px-4 py-3 text-sm text-success">
                   {notice}
                 </p>
               )}
@@ -374,18 +388,18 @@ export default function AccountForm() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full rounded-xl bg-purple-500 px-4 py-3 font-semibold transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-11 w-full rounded-xl bg-accent-strong px-4 py-3 font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? "Сохраняем..." : "Сохранить профиль"}
               </button>
             </form>
 
-            <div className="mt-8 border-t border-white/10 pt-6">
+            <div className="mt-8 border-t border-border-subtle pt-6">
               <button
                 type="button"
                 onClick={handleSignOut}
                 disabled={signingOut}
-                className="w-full rounded-xl border border-white/15 px-4 py-3 font-semibold transition hover:bg-white/10 disabled:opacity-60"
+                className="min-h-11 w-full rounded-xl border border-border-subtle px-4 py-3 font-semibold transition hover:bg-surface-2 disabled:opacity-60"
               >
                 {signingOut ? "Выходим..." : "Выйти из аккаунта"}
               </button>

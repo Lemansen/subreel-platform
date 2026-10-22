@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/components/site-header";
 import { LibraryControl } from "@/components/library-control";
 import { TitleReviews, type ReviewItem } from "@/components/title-reviews";
+import { ReportForm } from "@/app/reports/report-form";
 import type { LibraryStatus } from "@/app/progress/actions";
 import {
   contentLabels,
@@ -375,6 +376,7 @@ async function TitleContent({ params }: { params: Params }) {
               )}
             </div>
             <LibraryControl titleId={title.id} slug={title.slug} signedIn={signedIn} initialStatus={libraryEntry?.status ?? null} initialFavorite={libraryEntry?.is_favorite ?? false} />
+            <ReportForm target={{type:"title",id:title.id}} />
           </div>
         </div>
       </section>
