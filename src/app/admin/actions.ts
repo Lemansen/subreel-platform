@@ -543,3 +543,94 @@ async function deleteSource(fd: FormData, kind: "video" | "reading") {
 
 export async function deleteVideoSource(fd: FormData) { await deleteSource(fd, "video"); }
 export async function deleteReadingSource(fd: FormData) { await deleteSource(fd, "reading"); }
+
+export async function quickUpdateCatalogStatus(fd: FormData) {
+  const db = await admin();
+  const kind = val(fd, "kind", 24);
+  const id = val(fd, "id", 36);
+  const status = val(fd, "status", 20);
+  const configs = {
+    title: { table: "titles", column: "status", valid: ["draft", "published", "archived"] },
+    franchise: { table: "franchises", column: "status", valid: ["draft", "published", "archived"] },
+    season: { table: "title_seasons", column: "status", valid: ["draft", "published", "archived"] },
+    episode: { table: "title_episodes", column: "status", valid: ["draft", "published", "archived"] },
+    chapter: { table: "title_chapters", column: "status", valid: ["draft", "published", "archived"] },
+    edition: { table: "title_editions", column: "status", valid: ["draft", "published", "archived"] },
+    volume: { table: "title_volumes", column: "status", valid: ["draft", "published", "archived"] },
+    video: { table: "video_sources", column: "publication_status", valid: ["draft", "published", "disabled"] },
+    reading: { table: "reading_sources", column: "publication_status", valid: ["draft", "published", "disabled"] },
+  } as const;
+  if (!isUuid(id) || !(kind in configs)) redirect("/admin?tab=drafts&error=status-invalid");
+  const config = configs[kind as keyof typeof configs];
+  if (!(config.valid as readonly string[]).includes(status)) redirect("/admin?tab=drafts&error=status-invalid");
+
+  const { data: current, error: lookupError } = await db.from(config.table).select("*").eq("id", id).maybeSingle();
+  if (lookupError || !current) redirect("/admin?tab=drafts&error=status-invalid");
+  let titleSlug: string | null = null;
+
+  if ("title_id" in current) {
+    const { data: title, error: titleError } = await db.from("titles").select("id,slug,status").eq("id", current.title_id).maybeSingle();
+    if (titleError || !title) redirect("/admin?tab=drafts&error=status-invalid");
+    titleSlug = title.slug;
+    if (status === "published" && title.status !== "published") redirect("/admin?tab=drafts&error=status-parent-not-published");
+
+    if (kind === "episode" && status === "published" && current.season_id) {
+      const { data: season, error } = await db.from("title_seasons").select("status").eq("id", current.season_id).eq("title_id", current.title_id).maybeSingle();
+      if (error || season?.status !== "published") redirect("/admin?tab=drafts&error=status-parent-not-published");
+    }
+    if (kind === "volume" && status === "published" && current.edition_id) {
+      const { data: edition, error } = await db.from("title_editions").select("status").eq("id", current.edition_id).eq("title_id", current.title_id).maybeSingle();
+      if (error || edition?.status !== "published") redirect("/admin?tab=drafts&error=status-parent-not-published");
+    }
+    if (kind === "chapter" && status === "published") {
+      if (current.edition_id) {
+        const { data: edition, error } = await db.from("title_editions").select("status").eq("id", current.edition_id).eq("title_id", current.title_id).maybeSingle();
+        if (error || edition?.status !== "published") redirect("/admin?tab=drafts&error=status-parent-not-published");
+      }
+      if (current.volume_id) {
+        const { data: volume, error } = await db.from("title_volumes").select("status").eq("id", current.volume_id).eq("title_id", current.title_id).maybeSingle();
+        if (error || volume?.status !== "published") redirect("/admin?tab=drafts&error=status-parent-not-published");
+      }
+    }
+    if (kind === "video" && status === "published" && current.episode_id) {
+      const { data: episode, error } = await db.from("title_episodes").select("status,season_id").eq("id", current.episode_id).eq("title_id", current.title_id).maybeSingle();
+      if (error || episode?.status !== "published") redirect("/admin?tab=drafts&error=status-parent-not-published");
+      if (episode.season_id) {
+        const { data: season, error: seasonError } = await db.from("title_seasons").select("status").eq("id", episode.season_id).eq("title_id", current.title_id).maybeSingle();
+        if (seasonError || season?.status !== "published") redirect("/admin?tab=drafts&error=status-parent-not-published");
+      }
+    }
+    if (kind === "reading" && status === "published" && current.chapter_id) {
+      const { data: chapter, error } = await db.from("title_chapters").select("status,edition_id,volume_id").eq("id", current.chapter_id).eq("title_id", current.title_id).maybeSingle();
+      if (error || chapter?.status !== "published") redirect("/admin?tab=drafts&error=status-parent-not-published");
+      if (chapter.edition_id) {
+        const { data: edition, error: editionError } = await db.from("title_editions").select("status").eq("id", chapter.edition_id).eq("title_id", current.title_id).maybeSingle();
+        if (editionError || edition?.status !== "published") redirect("/admin?tab=drafts&error=status-parent-not-published");
+      }
+      if (chapter.volume_id) {
+        const { data: volume, error: volumeError } = await db.from("title_volumes").select("status").eq("id", chapter.volume_id).eq("title_id", current.title_id).maybeSingle();
+        if (volumeError || volume?.status !== "published") redirect("/admin?tab=drafts&error=status-parent-not-published");
+      }
+    }
+  }
+
+  const changes: Record<string, string> = { [config.column]: status, updated_at: new Date().toISOString() };
+  if ((kind === "video" || kind === "reading") && status === "published") {
+    if (fd.get("rights_confirmed") !== "yes") redirect("/admin?tab=drafts&error=rights");
+    changes.rights_status = "approved";
+    changes.reviewed_at = new Date().toISOString();
+  }
+  const { error } = await db.from(config.table).update(changes).eq("id", id);
+  if (error) {
+    console.error(`[admin] quick status update (${kind}):`, error.message);
+    redirect("/admin?tab=drafts&error=save");
+  }
+  revalidatePath("/admin");
+  revalidatePath("/catalog");
+  revalidatePath("/");
+  if (titleSlug) {
+    revalidatePath("/title/" + titleSlug);
+    revalidatePath("/watch/" + titleSlug);
+  }
+  redirect("/admin?tab=drafts&success=status-updated");
+}

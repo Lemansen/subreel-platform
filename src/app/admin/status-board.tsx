@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { quickUpdateCatalogStatus } from "./actions";
 
 export type StatusEntry = {
   id: string;
+  entity: "title" | "franchise" | "season" | "episode" | "chapter" | "edition" | "volume" | "video" | "reading";
   kind: string;
   name: string;
   detail: string;
@@ -59,8 +61,18 @@ export function StatusBoard({ entries }: { entries: StatusEntry[] }) {
             <p className="font-medium">{entry.name}</p>
             <p className="mt-1 text-xs text-zinc-500">{entry.kind}{entry.detail ? ` · ${entry.detail}` : ""}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className={`rounded-full border px-2.5 py-1 text-xs ${statusStyles[entry.status]}`}>{statusLabels[entry.status]}</span>
+            <form key={`${entry.id}-${entry.status}`} action={quickUpdateCatalogStatus} className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="id" value={entry.id}/>
+              <input type="hidden" name="kind" value={entry.entity}/>
+              <select aria-label={`Новый статус: ${entry.name}`} name="status" defaultValue={entry.status} className="min-h-9 rounded-lg border border-white/10 bg-[#111119] px-2 text-sm text-white">
+                <option value="draft">Черновик</option><option value="published">Опубликовано</option><option value="archived">Архив</option>
+                {(entry.entity === "video" || entry.entity === "reading") && <option value="disabled">Отключено</option>}
+              </select>
+              {(entry.entity === "video" || entry.entity === "reading") && <label className="flex items-center gap-1 text-xs text-zinc-400"><input type="checkbox" name="rights_confirmed" value="yes"/>Права подтверждены</label>}
+              <button className="rounded-lg bg-violet-500/20 px-3 py-2 text-sm text-violet-100 hover:bg-violet-500/30">Сохранить статус</button>
+            </form>
             <Link href={entry.href} className="rounded-lg border border-white/15 px-3 py-2 text-sm text-violet-200 hover:bg-white/5">Редактировать →</Link>
           </div>
         </li>)}
