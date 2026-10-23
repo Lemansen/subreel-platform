@@ -6,15 +6,20 @@ import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/components/site-header";
 import { LibraryControl } from "@/components/library-control";
 import { TitleReviews, type ReviewItem } from "@/components/title-reviews";
+import { TitleHero, type Cta } from "@/components/title/title-hero";
+import { TitleTabs, type TabItem } from "@/components/title/title-tabs";
+import {
+  EpisodesPanel,
+  type ChapterItem,
+  type EditionItem,
+  type EpisodeItem,
+  type SeasonItem,
+  type VolumeItem,
+} from "@/components/title/episodes-panel";
+import { RelatedPanel, type RelationItem, type TitleBrief } from "@/components/title/related-panel";
 import { ReportForm } from "@/app/reports/report-form";
 import type { LibraryStatus } from "@/app/progress/actions";
-import {
-  contentLabels,
-  coverBackground,
-  firstOf,
-  incomingRelationLabels,
-  outgoingRelationLabels,
-} from "@/lib/catalog";
+import { contentLabels, firstOf, incomingRelationLabels, outgoingRelationLabels } from "@/lib/catalog";
 
 type Params = Promise<{ slug: string }>;
 
@@ -31,36 +36,23 @@ type TitleRow = {
   release_year: number | null;
 };
 
-type TitleBrief = {
-  name: string;
-  slug: string;
-  content_type: string;
-  release_year: number | null;
-  cover_url: string | null;
-};
-
-type RelationItem = { label: string; title: TitleBrief };
-type SeasonItem = { id: string; season_number: number; name: string | null };
-type EpisodeItem = { id: string; season_id: string | null; episode_number: number; name: string | null };
-type EditionItem = { id: string; edition_kind: string; edition_number: number; name: string; language_code: string | null };
-type VolumeItem = { id: string; edition_id: string | null; volume_number: number; name: string | null };
-type ChapterItem = { id: string; edition_id: string | null; volume_id: string | null; chapter_number: number | null; chapter_label: string; name: string | null; sort_order: number };
 type LibraryEntry = { status: LibraryStatus; is_favorite: boolean };
 type TitleReviewRow = { id: string; user_id: string; rating: number; body: string; is_public: boolean; created_at: string };
 type ReviewProfile = { id: string; username: string | null; display_name: string | null; is_public: boolean };
-
+type ProgressItem = { unitId: string | null; completed: boolean };
 
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const BRIEF = "name, slug, content_type, release_year, cover_url";
+const VIDEO_TYPES = ["anime", "movie", "series", "drama", "cartoon"];
+const READING_TYPES = ["manga", "manhwa", "manhua", "light_novel", "web_novel", "book"];
+const NONE = { data: [], error: null };
 
 async function loadTitle(slug: string) {
   const supabase = await createClient();
 
   const { data: title, error } = await supabase
     .from("titles")
-    .select(
-      "id, franchise_id, name, original_name, slug, description, cover_url, banner_url, content_type, release_year"
-    )
+    .select("id, franchise_id, name, original_name, slug, description, cover_url, banner_url, content_type, release_year")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
@@ -69,33 +61,23 @@ async function loadTitle(slug: string) {
   if (!title) return null;
 
   const row = title as TitleRow;
+  const isVideo = VIDEO_TYPES.includes(row.content_type);
+  const isReading = READING_TYPES.includes(row.content_type);
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [genresRes, outRes, inRes, franchiseRes, siblingsRes, seasonsRes, episodesRes, editionsRes, volumesRes, chaptersRes, libraryRes, reviewsRes, reviewStatsRes] =
+  const [genresRes, outRes, inRes, franchiseRes, siblingsRes, seasonsRes, episodesRes, editionsRes, volumesRes, chaptersRes, libraryRes, reviewsRes, reviewStatsRes, progressRes, sourcesRes] =
     await Promise.all([
-      supabase
-        .from("title_genres")
-        .select("genres(name, slug)")
-        .eq("title_id", row.id),
+      supabase.from("title_genres").select("genres(name, slug)").eq("title_id", row.id),
       supabase
         .from("title_relationships")
-        .select(
-          `relationship_type, target:titles!title_relationships_target_title_id_fkey(${BRIEF})`
-        )
+        .select(`relationship_type, target:titles!title_relationships_target_title_id_fkey(${BRIEF})`)
         .eq("source_title_id", row.id),
       supabase
         .from("title_relationships")
-        .select(
-          `relationship_type, source:titles!title_relationships_source_title_id_fkey(${BRIEF})`
-        )
+        .select(`relationship_type, source:titles!title_relationships_source_title_id_fkey(${BRIEF})`)
         .eq("target_title_id", row.id),
       row.franchise_id
-        ? supabase
-            .from("franchises")
-            .select("name, slug")
-            .eq("id", row.franchise_id)
-            .eq("status", "published")
-            .maybeSingle()
+        ? supabase.from("franchises").select("name, slug").eq("id", row.franchise_id).eq("status", "published").maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       row.franchise_id
         ? supabase
@@ -117,6 +99,18 @@ async function loadTitle(slug: string) {
         : Promise.resolve({ data: null, error: null }),
       supabase.from("title_reviews").select("id,user_id,rating,body,is_public,created_at").eq("title_id", row.id).order("created_at", { ascending: false }).limit(100),
       supabase.rpc("title_review_stats", { target_title_id: row.id }),
+      // Последняя серия/глава пользователя: от неё зависит подпись главной кнопки.
+      user && isVideo
+        ? supabase.from("video_progress").select("episode_id, completed_at").eq("user_id", user.id).eq("title_id", row.id).order("updated_at", { ascending: false }).limit(500)
+        : user && isReading
+          ? supabase.from("reading_progress").select("chapter_id, completed_at").eq("user_id", user.id).eq("title_id", row.id).order("updated_at", { ascending: false }).limit(500)
+          : Promise.resolve(NONE),
+      // Есть ли вообще источник: без него кнопка «Смотреть/Читать» будет неактивной.
+      isVideo
+        ? supabase.from("video_sources").select("episode_id").eq("title_id", row.id).limit(2000)
+        : isReading
+          ? supabase.from("reading_sources").select("chapter_id").eq("title_id", row.id).limit(5000)
+          : Promise.resolve(NONE),
     ]);
 
   const reviewRows = (reviewsRes.data ?? []) as TitleReviewRow[];
@@ -125,18 +119,20 @@ async function loadTitle(slug: string) {
     ? await supabase.from("profiles").select("id,username,display_name,is_public").in("id", reviewUserIds)
     : { data: [], error: null };
   const reviewProfiles = new Map(((profilesRes.data ?? []) as ReviewProfile[]).map((profile) => [profile.id, profile]));
-  const publicReviews: ReviewItem[] = reviewRows.filter((review) => review.is_public && reviewProfiles.get(review.user_id)?.is_public).map((review) => {
-    const profile = reviewProfiles.get(review.user_id);
-    const showIdentity = profile?.is_public === true;
-    return {
-      id: review.id,
-      userId: review.user_id,
-      name: showIdentity ? profile.display_name || profile.username || "Пользователь" : "Анонимный читатель",
-      rating: review.rating,
-      body: review.body,
-      createdAt: review.created_at,
-    };
-  });
+  const publicReviews: ReviewItem[] = reviewRows
+    .filter((review) => review.is_public && reviewProfiles.get(review.user_id)?.is_public)
+    .map((review) => {
+      const profile = reviewProfiles.get(review.user_id);
+      const showIdentity = profile?.is_public === true;
+      return {
+        id: review.id,
+        userId: review.user_id,
+        name: showIdentity ? profile.display_name || profile.username || "Пользователь" : "Анонимный читатель",
+        rating: review.rating,
+        body: review.body,
+        createdAt: review.created_at,
+      };
+    });
   const ownReview = user ? reviewRows.find((review) => review.user_id === user.id) : undefined;
 
   // Второстепенные блоки не должны ронять страницу целиком.
@@ -154,6 +150,8 @@ async function loadTitle(slug: string) {
     ["library", libraryRes],
     ["reviews", reviewsRes],
     ["review_stats", reviewStatsRes],
+    ["progress", progressRes],
+    ["sources", sourcesRes],
   ] as const) {
     if (res.error) console.error(`[title/${slug}] ${name} failed:`, res.error.message);
   }
@@ -163,33 +161,28 @@ async function loadTitle(slug: string) {
     .filter((g): g is { name: string; slug: string } => g !== null);
 
   const relations: RelationItem[] = [];
-  for (const r of (outRes.data ?? []) as {
-    relationship_type: string;
-    target: TitleBrief | TitleBrief[] | null;
-  }[]) {
+  for (const r of (outRes.data ?? []) as { relationship_type: string; target: TitleBrief | TitleBrief[] | null }[]) {
     const t = firstOf(r.target);
-    if (t) {
-      relations.push({
-        label: outgoingRelationLabels[r.relationship_type] ?? r.relationship_type,
-        title: t,
-      });
-    }
+    if (t) relations.push({ label: outgoingRelationLabels[r.relationship_type] ?? r.relationship_type, title: t });
   }
-  for (const r of (inRes.data ?? []) as {
-    relationship_type: string;
-    source: TitleBrief | TitleBrief[] | null;
-  }[]) {
+  for (const r of (inRes.data ?? []) as { relationship_type: string; source: TitleBrief | TitleBrief[] | null }[]) {
     const t = firstOf(r.source);
-    if (t) {
-      relations.push({
-        label: incomingRelationLabels[r.relationship_type] ?? r.relationship_type,
-        title: t,
-      });
-    }
+    if (t) relations.push({ label: incomingRelationLabels[r.relationship_type] ?? r.relationship_type, title: t });
   }
+
+  const progress: ProgressItem[] = (
+    (progressRes.data ?? []) as unknown as { episode_id?: string | null; chapter_id?: string | null; completed_at: string | null }[]
+  ).map((p) => ({ unitId: p.episode_id ?? p.chapter_id ?? null, completed: Boolean(p.completed_at) }));
+
+  const sourceRows = (sourcesRes.data ?? []) as unknown as { episode_id?: string | null; chapter_id?: string | null }[];
+  const sourceUnitIds = new Set(
+    sourceRows.map((s) => s.episode_id ?? s.chapter_id).filter((id): id is string => Boolean(id))
+  );
 
   return {
     title: row,
+    isVideo,
+    isReading,
     genres,
     relations,
     franchise: (franchiseRes.data ?? null) as { name: string; slug: string } | null,
@@ -201,6 +194,9 @@ async function loadTitle(slug: string) {
     chapters: (chaptersRes.data ?? []) as ChapterItem[],
     signedIn: Boolean(user),
     libraryEntry: (libraryRes.data ?? null) as LibraryEntry | null,
+    progress,
+    sourceUnitIds,
+    hasSources: sourceRows.length > 0,
     ownReview: ownReview ? { rating: ownReview.rating, body: ownReview.body, isPublic: ownReview.is_public } : null,
     publicReviews,
     reviewAverage: Number((reviewStatsRes.data?.[0] as { average_rating: number | string } | undefined)?.average_rating ?? 0),
@@ -209,46 +205,86 @@ async function loadTitle(slug: string) {
   };
 }
 
-function ChapterList({ chapters }: { chapters: ChapterItem[] }) {
-  return (
-    <ol className="mt-3 grid gap-2 sm:grid-cols-2">
-      {chapters.map((chapter) => (
-        <li key={chapter.id} className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
-          <span className="text-xs text-zinc-400">Глава {chapter.chapter_label}</span>
-          {chapter.name && <p className="mt-1 font-medium">{chapter.name}</p>}
-        </li>
-      ))}
-    </ol>
-  );
+type LoadedTitle = NonNullable<Awaited<ReturnType<typeof loadTitle>>>;
+
+/**
+ * Подпись главной кнопки повторяет выбор плеера/читалки: они открывают последнюю
+ * серию/главу из прогресса, а без прогресса — первую, у которой есть источник.
+ * Поэтому «Читать с главы N» всегда совпадает с тем, что реально откроется.
+ */
+function buildCta(d: LoadedTitle): Cta | null {
+  if (!d.isVideo && !d.isReading) return null;
+  const href = `${d.isVideo ? "/watch" : "/read"}/${d.title.slug}`;
+  const icon = d.isVideo ? ("play" as const) : ("book" as const);
+
+  if (!d.hasSources) {
+    return { href, icon, disabled: true, label: d.isVideo ? "Смотреть" : "Читать", note: "Источник пока не подключён" };
+  }
+
+  const last = d.progress[0];
+  if (d.isVideo) {
+    const episode = last?.unitId ? d.episodes.find((e) => e.id === last.unitId) : undefined;
+    if (episode) return { href, icon, disabled: false, label: `Продолжить с серии ${episode.episode_number}` };
+    if (last) return { href, icon, disabled: false, label: "Продолжить просмотр" };
+    return { href, icon, disabled: false, label: "Смотреть" };
+  }
+
+  const ordered = [...d.chapters].sort((a, b) => a.sort_order - b.sort_order);
+  const resume = last?.unitId ? ordered.find((c) => c.id === last.unitId) : undefined;
+  if (resume) return { href, icon, disabled: false, label: `Продолжить с главы ${resume.chapter_label}` };
+  const first = ordered.find((c) => d.sourceUnitIds.has(c.id));
+  return { href, icon, disabled: false, label: first ? `Читать с главы ${first.chapter_label}` : "Читать" };
 }
 
-function MiniCard({ title, caption }: { title: TitleBrief; caption?: string }) {
+function DescriptionPanel({
+  title,
+  franchise,
+  unitCount,
+  unitLabel,
+}: {
+  title: TitleRow;
+  franchise: { name: string; slug: string } | null;
+  unitCount: number;
+  unitLabel: string | null;
+}) {
+  const facts: { label: string; value: React.ReactNode }[] = [
+    { label: "Формат", value: contentLabels[title.content_type] ?? title.content_type },
+  ];
+  if (title.release_year) facts.push({ label: "Год выхода", value: title.release_year });
+  if (title.original_name && title.original_name !== title.name) facts.push({ label: "Оригинал", value: title.original_name });
+  if (unitLabel && unitCount > 0) facts.push({ label: unitLabel, value: unitCount });
+  if (franchise) {
+    facts.push({
+      label: "Франшиза",
+      value: (
+        <Link href={`/franchise/${franchise.slug}`} className="text-accent transition hover:brightness-125">
+          {franchise.name}
+        </Link>
+      ),
+    });
+  }
+
   return (
-    <Link
-      href={`/title/${title.slug}`}
-      className="group flex gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3 transition hover:border-violet-400/40 hover:bg-white/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400"
-    >
-      <div className="relative h-24 w-[72px] shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-violet-950 via-[#171321] to-[#0e0e14]">
-        {title.cover_url && (
-          <div
-            role="img"
-            aria-label={`Обложка: ${title.name}`}
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: coverBackground(title.cover_url) }}
-          />
+    <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div>
+        {title.description ? (
+          <p className="max-w-[68ch] whitespace-pre-line text-base leading-8 text-text-secondary">{title.description}</p>
+        ) : (
+          <p className="text-sm text-text-muted">Описание пока не добавлено.</p>
         )}
       </div>
-      <div className="min-w-0 py-1">
-        {caption && <p className="text-xs text-violet-300">{caption}</p>}
-        <p className="mt-1 line-clamp-2 font-semibold transition group-hover:text-violet-300">
-          {title.name}
-        </p>
-        <p className="mt-1 text-xs text-zinc-400">
-          {contentLabels[title.content_type] ?? title.content_type}
-          {title.release_year ? `, ${title.release_year}` : ""}
-        </p>
-      </div>
-    </Link>
+      <aside className="space-y-4">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 rounded-2xl border border-border-subtle bg-surface-1 p-5 text-sm">
+          {facts.map((fact) => (
+            <div key={fact.label} className="contents">
+              <dt className="text-text-muted">{fact.label}</dt>
+              <dd className="min-w-0 break-words text-right">{fact.value}</dd>
+            </div>
+          ))}
+        </dl>
+        <ReportForm target={{ type: "title", id: title.id }} />
+      </aside>
+    </div>
   );
 }
 
@@ -265,15 +301,11 @@ async function TitleContent({ params }: { params: Params }) {
     unstable_rethrow(error);
     console.error(`[title/${slug}] load failed:`, error);
     return (
-      <main className="min-h-screen bg-[#09090d] px-5 py-16 text-white sm:px-8">
-        <div className="mx-auto max-w-2xl rounded-2xl border border-amber-400/20 bg-amber-400/[0.05] p-8">
-          <h1 className="font-semibold text-amber-200">
-            Не удалось загрузить страницу
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Попробуй обновить страницу чуть позже.
-          </p>
-          <Link href="/" className="mt-5 inline-block text-sm text-violet-300 hover:text-violet-200">
+      <main className="min-h-screen bg-background px-5 py-16 text-foreground sm:px-8">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-warning/20 bg-warning/5 p-8">
+          <h1 className="font-semibold text-warning">Не удалось загрузить страницу</h1>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">Попробуй обновить страницу чуть позже.</p>
+          <Link href="/" className="mt-5 inline-block text-sm text-accent hover:brightness-125">
             ← На главную
           </Link>
         </div>
@@ -283,224 +315,93 @@ async function TitleContent({ params }: { params: Params }) {
 
   if (!data) notFound();
 
-  const { title, genres, relations, franchise, siblings, seasons, episodes, editions, volumes, chapters, signedIn, libraryEntry } = data;
-  const isVideo = ["anime", "movie", "series", "drama", "cartoon"].includes(title.content_type);
-  const isReading = ["manga", "manhwa", "manhua", "light_novel", "web_novel", "book"].includes(title.content_type);
-  const heroImage = title.banner_url ?? title.cover_url;
+  const { title, isVideo, isReading, genres, relations, franchise, siblings, seasons, episodes, editions, volumes, chapters, signedIn, libraryEntry, progress } = data;
+  const hasUnits = (isVideo && title.content_type !== "movie") || isReading;
+  const unitCount = isVideo ? episodes.length : chapters.length;
+  const currentId = progress[0]?.unitId ?? null;
+  const done = new Set(progress.filter((p) => p.completed && p.unitId).map((p) => p.unitId as string));
+
+  const tabs: TabItem[] = [
+    {
+      id: "description",
+      label: "Описание",
+      content: (
+        <DescriptionPanel
+          title={title}
+          franchise={franchise}
+          unitCount={unitCount}
+          unitLabel={hasUnits ? (isVideo ? "Серий" : "Глав") : null}
+        />
+      ),
+    },
+    ...(hasUnits
+      ? [
+          {
+            id: "episodes",
+            label: isVideo ? "Серии" : "Главы",
+            count: unitCount,
+            content: (
+              <EpisodesPanel
+                isVideo={isVideo}
+                seasons={seasons}
+                episodes={episodes}
+                editions={editions}
+                volumes={volumes}
+                chapters={chapters}
+                done={done}
+                currentId={currentId}
+              />
+            ),
+          },
+        ]
+      : []),
+    {
+      id: "reviews",
+      label: "Отзывы",
+      count: data.reviewCount,
+      content: (
+        <TitleReviews
+          titleId={title.id}
+          slug={title.slug}
+          signedIn={signedIn}
+          initialReview={data.ownReview}
+          reviews={data.publicReviews}
+          average={data.reviewAverage}
+          count={data.reviewCount}
+          available={data.reviewsAvailable}
+        />
+      ),
+    },
+    {
+      id: "related",
+      label: "Связанное",
+      count: relations.length + siblings.length,
+      content: <RelatedPanel relations={relations} siblings={siblings} franchise={franchise} />,
+    },
+  ];
 
   return (
-    <main className="min-h-screen bg-[#09090d] text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <SiteHeader active="catalog" />
-
-      <section className="relative isolate overflow-hidden border-b border-white/[0.06]">
-        {heroImage && (
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 -z-10 scale-110 bg-cover bg-center opacity-25 blur-2xl"
-            style={{ backgroundImage: coverBackground(heroImage) }}
+      <TitleHero
+        title={title}
+        genres={genres}
+        franchise={franchise}
+        rating={{ average: data.reviewAverage, count: data.reviewCount }}
+        cta={buildCta(data)}
+        actions={
+          <LibraryControl
+            titleId={title.id}
+            slug={title.slug}
+            signedIn={signedIn}
+            initialStatus={libraryEntry?.status ?? null}
+            initialFavorite={libraryEntry?.is_favorite ?? false}
           />
-        )}
-        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-12 sm:px-8 md:grid-cols-[240px_1fr] md:py-16">
-          <div className="relative mx-auto aspect-[3/4] w-48 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-violet-950 via-[#171321] to-[#0e0e14] md:w-full">
-            {title.cover_url ? (
-              <div
-                role="img"
-                aria-label={`Обложка: ${title.name}`}
-                className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: coverBackground(title.cover_url) }}
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-2xl font-black text-white/25">
-                SubReel
-              </div>
-            )}
-          </div>
-
-          <div>
-            <p className="text-sm text-zinc-300">
-              {contentLabels[title.content_type] ?? title.content_type}
-              {title.release_year ? `, ${title.release_year}` : ""}
-              {franchise ? (
-                <>
-                  {" · "}
-                  <Link href={`/franchise/${franchise.slug}`} className="text-accent transition hover:text-violet-200">
-                    Франшиза «{franchise.name}»
-                  </Link>
-                </>
-              ) : ""}
-            </p>
-            <h1 className="mt-3 text-4xl font-black leading-tight tracking-tight sm:text-5xl">
-              {title.name}
-            </h1>
-            {title.original_name && title.original_name !== title.name && (
-              <p className="mt-2 text-base text-zinc-400">{title.original_name}</p>
-            )}
-
-            {genres.length > 0 && (
-              <ul className="mt-5 flex flex-wrap gap-2">
-                {genres.map((g) => (
-                  <li
-                    key={g.slug}
-                    className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-zinc-300"
-                  >
-                    {g.name}
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {title.description ? (
-              <p className="mt-6 max-w-2xl whitespace-pre-line text-sm leading-7 text-zinc-300">
-                {title.description}
-              </p>
-            ) : (
-              <p className="mt-6 text-sm text-zinc-500">Описание пока не добавлено.</p>
-            )}
-
-            <div className="mt-8 flex flex-wrap gap-3">
-              {["anime", "movie", "series", "drama", "cartoon"].includes(title.content_type) && (
-                <Link
-                  href={`/watch/${title.slug}`}
-                  className="inline-flex min-h-11 items-center rounded-xl bg-violet-500 px-5 text-sm font-semibold transition hover:bg-violet-400"
-                >
-                  Открыть просмотр
-                </Link>
-              )}
-              {["manga", "manhwa", "manhua", "light_novel", "web_novel", "book"].includes(title.content_type) && (
-                <Link
-                  href={`/read/${title.slug}`}
-                  className="inline-flex min-h-11 items-center rounded-xl bg-violet-500 px-5 text-sm font-semibold transition hover:bg-violet-400"
-                >
-                  Открыть читалку
-                </Link>
-              )}
-            </div>
-            <LibraryControl titleId={title.id} slug={title.slug} signedIn={signedIn} initialStatus={libraryEntry?.status ?? null} initialFavorite={libraryEntry?.is_favorite ?? false} />
-            <ReportForm target={{type:"title",id:title.id}} />
-          </div>
-        </div>
-      </section>
-
-      <TitleReviews titleId={title.id} slug={title.slug} signedIn={signedIn} initialReview={data.ownReview} reviews={data.publicReviews} average={data.reviewAverage} count={data.reviewCount} available={data.reviewsAvailable} />
-
-      {((isVideo && title.content_type !== "movie") || isReading) && (
-        <section className="mx-auto max-w-7xl px-5 py-10 sm:px-8">
-          <h2 className="text-2xl font-bold tracking-tight">
-            {isVideo ? "Сезоны и серии" : "Издания и главы"}
-          </h2>
-
-          {isVideo && episodes.length === 0 && (
-            <p className="mt-4 text-sm text-zinc-400">Серии пока не добавлены.</p>
-          )}
-          {isVideo && seasons.map((season) => {
-            const seasonEpisodes = episodes.filter((episode) => episode.season_id === season.id);
-            return (
-              <div key={season.id} className="mt-6">
-                <h3 className="font-semibold text-violet-200">
-                  {season.name || `Сезон ${season.season_number}`}
-                </h3>
-                {seasonEpisodes.length > 0 ? (
-                  <ol className="mt-3 grid gap-2 sm:grid-cols-2">
-                    {seasonEpisodes.map((episode) => (
-                      <li key={episode.id} className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
-                        <span className="text-xs text-zinc-400">Серия {episode.episode_number}</span>
-                        {episode.name && <p className="mt-1 font-medium">{episode.name}</p>}
-                      </li>
-                    ))}
-                  </ol>
-                ) : (
-                  <p className="mt-2 text-sm text-zinc-500">Серии пока не добавлены.</p>
-                )}
-              </div>
-            );
-          })}
-          {isVideo && episodes.some((episode) => episode.season_id === null) && (
-            <div className="mt-6">
-              {seasons.length > 0 && <h3 className="font-semibold text-violet-200">Без сезона</h3>}
-              <ol className="mt-3 grid gap-2 sm:grid-cols-2">
-                {episodes.filter((episode) => episode.season_id === null).map((episode) => (
-                  <li key={episode.id} className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
-                    <span className="text-xs text-zinc-400">Серия {episode.episode_number}</span>
-                    {episode.name && <p className="mt-1 font-medium">{episode.name}</p>}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-
-          {isReading && editions.length === 0 && chapters.length === 0 && volumes.length === 0 && (
-            <p className="mt-4 text-sm text-zinc-400">Главы пока не добавлены.</p>
-          )}
-          {isReading && editions.map((edition) => {
-            const editionVolumes = volumes.filter((volume) => volume.edition_id === edition.id);
-            const editionChapters = chapters.filter((chapter) => chapter.edition_id === edition.id && chapter.volume_id === null);
-            return (
-              <div key={edition.id} className="mt-6">
-                <h3 className="font-semibold text-violet-200">{edition.name}</h3>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {edition.edition_kind === "graphic" ? "Графическое издание" : "Текстовое издание"}
-                  {edition.language_code ? ` · ${edition.language_code}` : ""}
-                </p>
-                {editionVolumes.map((volume) => {
-                  const volumeChapters = chapters.filter((chapter) => chapter.volume_id === volume.id);
-                  return (
-                    <div key={volume.id} className="mt-4">
-                      <h4 className="text-sm font-medium text-zinc-200">{volume.name || `Том ${volume.volume_number}`}</h4>
-                      {volumeChapters.length > 0 && (
-                        <ChapterList chapters={volumeChapters} />
-                      )}
-                    </div>
-                  );
-                })}
-                {editionChapters.length > 0 && <ChapterList chapters={editionChapters} />}
-              </div>
-            );
-          })}
-          {isReading && volumes.some((volume) => volume.edition_id === null) && (
-            <div className="mt-6">
-              <h3 className="font-semibold text-violet-200">Тома</h3>
-              {volumes.filter((volume) => volume.edition_id === null).map((volume) => (
-                <div key={volume.id} className="mt-3">
-                  <h4 className="text-sm font-medium">{volume.name || `Том ${volume.volume_number}`}</h4>
-                  {chapters.some((chapter) => chapter.volume_id === volume.id) && (
-                    <ChapterList chapters={chapters.filter((chapter) => chapter.volume_id === volume.id)} />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          {isReading && chapters.some((chapter) => chapter.edition_id === null && chapter.volume_id === null) && (
-            <div className="mt-6">
-              <h3 className="font-semibold text-violet-200">Главы</h3>
-              <ChapterList chapters={chapters.filter((chapter) => chapter.edition_id === null && chapter.volume_id === null)} />
-            </div>
-          )}
-        </section>
-      )}
-
-      {relations.length > 0 && (
-        <section className="mx-auto max-w-7xl px-5 py-12 sm:px-8">
-          <h2 className="text-2xl font-bold tracking-tight">Связанные произведения</h2>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {relations.map((r) => (
-              <MiniCard key={`${r.label}-${r.title.slug}`} title={r.title} caption={r.label} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {siblings.length > 0 && (
-        <section className="mx-auto max-w-7xl px-5 pb-16 sm:px-8">
-          <h2 className="text-2xl font-bold tracking-tight">
-            Ещё во франшизе{franchise ? ` «${franchise.name}»` : ""}
-          </h2>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {siblings.map((s) => (
-              <MiniCard key={s.slug} title={s} />
-            ))}
-          </div>
-        </section>
-      )}
+        }
+      />
+      <div className="mx-auto w-full max-w-7xl px-5 pb-20 sm:px-8">
+        <TitleTabs tabs={tabs} />
+      </div>
     </main>
   );
 }
@@ -509,8 +410,8 @@ export default function TitlePage({ params }: { params: Params }) {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-[#09090d] p-8 text-white">
-          <p className="animate-pulse text-sm text-zinc-400">Загружаем тайтл...</p>
+        <main className="min-h-screen bg-background p-8 text-foreground">
+          <p className="animate-pulse text-sm text-text-secondary">Загружаем тайтл...</p>
         </main>
       }
     >
