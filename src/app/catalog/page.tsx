@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ContentCard, type CatalogCardTitle } from "@/components/content-card";
 import { SiteHeader, SiteHeaderFallback } from "@/components/site-header";
 import { CatalogFilters, FiltersButton } from "@/components/catalog/catalog-filters";
+import { CatalogResultsGrid } from "@/components/catalog/catalog-results-grid";
 import { contentLabels } from "@/lib/catalog";
 import {
   DEFAULT_SORT,
@@ -216,9 +217,9 @@ async function CatalogContent({ searchParams }: { searchParams: SearchParams }) 
                 </div>
               )
             ) : (
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
+              <CatalogResultsGrid>
                 {titles.map((title) => <ContentCard key={title.id ?? title.slug} title={title} />)}
-              </div>
+              </CatalogResultsGrid>
             )}
 
             {!catalogError && pageCount > 1 && (
