@@ -1,5 +1,4 @@
 import Link from "next/link";
-import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { notFound, unstable_rethrow } from "next/navigation";
@@ -23,52 +22,6 @@ import type { LibraryStatus } from "@/app/progress/actions";
 import { contentLabels, firstOf, incomingRelationLabels, outgoingRelationLabels } from "@/lib/catalog";
 
 type Params = Promise<{ slug: string }>;
-
-const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://subreel.ru").replace(/\/$/, "");
-
-export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
-  const { slug } = await params;
-  if (!SLUG_RE.test(slug)) return { title: "Тайтл не найден" };
-
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("titles")
-      .select("name, original_name, description, cover_url, banner_url, release_year, content_type")
-      .eq("slug", slug)
-      .eq("status", "published")
-      .maybeSingle();
-    if (error) console.error(`[metadata/title/${slug}] query failed:`, error.message);
-    if (!data) return { title: "Тайтл не найден", robots: { index: false, follow: false } };
-
-    const description = (data.description || `${data.name} — описание, серии, главы и отзывы на SubReel.`).slice(0, 300);
-    const image = data.banner_url || data.cover_url;
-    const url = `${siteUrl}/title/${slug}`;
-    return {
-      title: data.name,
-      description,
-      alternates: { canonical: url },
-      openGraph: {
-        type: "website",
-        locale: "ru_RU",
-        siteName: "SubReel",
-        title: data.name,
-        description,
-        url,
-        ...(image ? { images: [{ url: image, alt: `Обложка: ${data.name}` }] } : {}),
-      },
-      twitter: {
-        card: image ? "summary_large_image" : "summary",
-        title: data.name,
-        description,
-        ...(image ? { images: [image] } : {}),
-      },
-    };
-  } catch (error) {
-    console.error(`[metadata/title/${slug}] failed:`, error);
-    return { title: "SubReel" };
-  }
-}
 
 type TitleRow = {
   id: string;
@@ -389,6 +342,7 @@ async function TitleContent({ params }: { params: Params }) {
             count: unitCount,
             content: (
               <EpisodesPanel
+                slug={title.slug}
                 isVideo={isVideo}
                 seasons={seasons}
                 episodes={episodes}
