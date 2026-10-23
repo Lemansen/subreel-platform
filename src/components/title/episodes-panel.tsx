@@ -1,3 +1,4 @@
+import Link from "next/link";
 export type SeasonItem = { id: string; season_number: number; name: string | null };
 export type EpisodeItem = { id: string; season_id: string | null; episode_number: number; name: string | null };
 export type EditionItem = { id: string; edition_kind: string; edition_number: number; name: string; language_code: string | null };
@@ -50,6 +51,7 @@ function buildGroups(p: Omit<Props, "done" | "currentId">): Group[] {
 
 type Props = {
   isVideo: boolean;
+  slug: string;
   seasons: SeasonItem[];
   episodes: EpisodeItem[];
   editions: EditionItem[];
@@ -86,12 +88,14 @@ export function EpisodesPanel({ done, currentId, ...data }: Props) {
               {group.units.map((unit) => {
                 const state = unit.id === currentId ? "current" : done.has(unit.id) ? "done" : null;
                 return (
-                  <li
-                    key={unit.id}
-                    className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
-                      state === "current" ? "border-accent/50 bg-accent/10" : "border-border-subtle bg-surface-1"
-                    }`}
-                  >
+                  <li key={unit.id}>
+                    <Link
+                      href={`/${data.isVideo ? "watch" : "read"}/${data.slug}?${data.isVideo ? "episode" : "chapter"}=${encodeURIComponent(unit.id)}`}
+                      aria-current={state === "current" ? "page" : undefined}
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition hover:border-accent/50 hover:bg-accent/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${
+                        state === "current" ? "border-accent/50 bg-accent/10" : "border-border-subtle bg-surface-1"
+                      }`}
+                    >
                     <span className="grid h-10 min-w-10 place-items-center rounded-lg bg-surface-2 px-2 text-sm font-semibold tabular-nums">
                       {unit.number}
                     </span>
@@ -101,6 +105,7 @@ export function EpisodesPanel({ done, currentId, ...data }: Props) {
                         {state === "current" ? "Продолжить" : data.isVideo ? "✓ Просмотрено" : "✓ Прочитано"}
                       </span>
                     )}
+                    </Link>
                   </li>
                 );
               })}
