@@ -94,6 +94,7 @@ export function CatalogFilters({ genres, filters, total }: { genres: Genre[]; fi
   const count = activeFilterCount(view);
 
   function apply(next: CatalogFilterState) {
+    window.dispatchEvent(new Event("subreel:catalog-loading"));
     startTransition(() => {
       setView(next);
       router.replace(catalogHref(next), { scroll: false });
