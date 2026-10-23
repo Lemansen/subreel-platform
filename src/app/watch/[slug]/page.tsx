@@ -7,14 +7,17 @@ import { VideoPlayback } from "@/components/video-playback";
 import { createClient } from "@/lib/supabase/server";
 
 type Params = Promise<{ slug: string }>;
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const videoTypes = ["anime", "movie", "series", "drama", "cartoon"];
 type Episode = { id: string; episode_number: number; name: string | null; season_id: string | null };
 type VideoSource = { id: string; episode_id: string | null; source_url: string; source_format: "hls" | "dash" | "mp4" | "embed"; provider_name: string | null; language_code: string | null; quality_label: string | null };
 type VideoProgress = { episode_id: string | null; position_seconds: number; duration_seconds: number | null; completed_at: string | null; updated_at: string };
 
-async function WatchContent({ params }: { params: Params }) {
+async function WatchContent({ params, searchParams }: { params: Params; searchParams: SearchParams }) {
   await connection();
   const { slug } = await params;
+  const query = await searchParams;
+  const requestedId = Array.isArray(query.episode) ? query.episode[0] : query.episode;
   const supabase = await createClient();
   const { data: title, error } = await supabase
     .from("titles")
@@ -75,7 +78,7 @@ async function WatchContent({ params }: { params: Params }) {
         ) : (
           <section className="mt-6 overflow-hidden rounded-2xl border border-border-subtle bg-surface-1">
             {sources.length > 0 ? (
-              <VideoPlayback titleId={title.id} episodes={episodes} sources={sources} initialProgress={progress} canSaveProgress={Boolean(user)} />
+              <VideoPlayback titleId={title.id} episodes={episodes} sources={sources} initialProgress={progress} canSaveProgress={Boolean(user)} initialEpisodeId={requestedId ?? null} />
             ) : <div className="flex aspect-video flex-col items-center justify-center bg-black px-6 text-center">
               <div aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-2xl text-text-muted">▶</div>
               <h2 className="mt-5 text-lg font-semibold">Видеоисточник пока не добавлен</h2>
@@ -93,10 +96,10 @@ async function WatchContent({ params }: { params: Params }) {
 }
 
 
-export default function WatchPage({ params }: { params: Params }) {
+export default function WatchPage({ params, searchParams }: { params: Params; searchParams: SearchParams }) {
   return (
     <Suspense fallback={<main className="min-h-screen animate-pulse bg-background"><div className="h-[68px] border-b border-border-subtle" /><div className="mx-auto mt-10 aspect-video max-w-6xl rounded-2xl bg-surface-1" /></main>}>
-      <WatchContent params={params} />
+      <WatchContent params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
