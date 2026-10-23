@@ -47,7 +47,7 @@ export function TitleReviews({
     router.refresh();
   }
 
-  return <section className="mx-auto max-w-7xl px-5 py-12 sm:px-8">
+  return <section>
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div><h2 className="text-2xl font-bold tracking-tight">Оценки и отзывы</h2><p className="mt-2 text-sm text-text-secondary">{count ? `${average.toFixed(1)} из 10 · ${count} ${count === 1 ? "оценка" : "оценок"}` : "Публичных оценок пока нет"}</p></div>
       <span aria-label={`Средняя оценка ${average} из 10`} className="text-3xl font-black text-accent">{count ? average.toFixed(1) : "—"}<span className="text-base text-text-muted"> / 10</span></span>
