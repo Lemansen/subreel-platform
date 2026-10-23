@@ -8,47 +8,90 @@ type VideoSource = { id: string; episode_id: string | null; source_url: string; 
 type VideoProgress = { episode_id: string | null; position_seconds: number; duration_seconds: number | null; completed_at: string | null; updated_at: string };
 
 export function VideoPlayback({ titleId, episodes, sources, initialProgress, canSaveProgress }: { titleId: string; episodes: Episode[]; sources: VideoSource[]; initialProgress: VideoProgress[]; canSaveProgress: boolean }) {
-  const playable = sources.filter((source) => source.source_format === "mp4" || source.source_format === "hls" || source.source_format === "dash" || source.source_format === "embed");
-  const latestProgress = initialProgress[0];
-  const resumeTarget = latestProgress?.episode_id && episodes.some((episode) => episode.id === latestProgress.episode_id)
-    ? latestProgress.episode_id
-    : latestProgress && latestProgress.episode_id === null && playable.some((source) => source.episode_id === null)
-      ? "title"
-      : null;
-  const initialEpisode = resumeTarget ?? episodes.find((episode) => playable.some((source) => source.episode_id === episode.id))?.id ?? "title";
-  const [episodeId, setEpisodeId] = useState(initialEpisode);
+  const playable = useMemo(() => sources.filter((s) => ["mp4", "hls", "dash", "embed"].includes(s.source_format)), [sources]);
+  const watched = useMemo(() => new Set(initialProgress.filter((p) => p.completed_at).map((p) => p.episode_id ?? "title")), [initialProgress]);
+  const latest = initialProgress[0];
+  const initial =
+    (latest?.episode_id && episodes.some((e) => e.id === latest.episode_id) ? latest.episode_id : null) ??
+    episodes.find((e) => playable.some((s) => s.episode_id === e.id))?.id ?? "title";
+
+  const [episodeId, setEpisodeId] = useState(initial);
   const [sourceId, setSourceId] = useState("");
+  const [autoNext, setAutoNext] = useState(true);
+
   const options = useMemo(() => {
-    const specific = episodeId === "title" ? [] : playable.filter((source) => source.episode_id === episodeId);
-    return specific.length ? specific : playable.filter((source) => source.episode_id === null);
+    const specific = episodeId === "title" ? [] : playable.filter((s) => s.episode_id === episodeId);
+    return specific.length ? specific : playable.filter((s) => s.episode_id === null);
   }, [episodeId, playable]);
-  const selected = options.find((source) => source.id === sourceId) ?? options[0];
+  const selected = options.find((s) => s.id === sourceId) ?? options[0];
   const activeEpisodeId = episodeId === "title" ? null : episodeId;
-  const progress = initialProgress.find((item) => item.episode_id === activeEpisodeId);
+  const progress = initialProgress.find((p) => p.episode_id === activeEpisodeId);
+  const index = episodes.findIndex((e) => e.id === episodeId);
+  const current = episodes[index];
+
+  function go(delta: number) {
+    const next = episodes[index + delta];
+    if (next) { setEpisodeId(next.id); setSourceId(""); }
+  }
 
   return (
-    <div className="bg-black">
-      {episodes.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-border-subtle bg-surface-1 px-4 py-3">
-          <label htmlFor="watch-episode" className="text-sm text-text-secondary">Серия</label>
-          <select id="watch-episode" value={episodeId} onChange={(event) => { setEpisodeId(event.target.value); setSourceId(""); }} className="min-h-10 min-w-48 rounded-lg border border-border-subtle bg-background px-3 text-sm text-white">
-            <option value="title">Весь тайтл</option>
-            {episodes.map((episode) => <option key={episode.id} value={episode.id}>{episode.episode_number}{episode.name ? ` · ${episode.name}` : ""}</option>)}
-          </select>
-        </div>
-      )}
+    <div className="overflow-hidden rounded-2xl bg-black ring-1 ring-white/5">
       {options.length > 0 ? (
-        <>
-          {options.length > 1 && <div className="flex flex-wrap items-center gap-3 px-4 py-3"><label htmlFor="watch-source" className="text-sm text-text-secondary">Источник</label><select id="watch-source" value={selected?.id} onChange={(event) => setSourceId(event.target.value)} className="min-h-11 min-w-48 rounded-lg border border-border-subtle bg-surface-1 px-3 text-sm text-foreground">{options.map((source) => <option key={source.id} value={source.id}>{[source.provider_name, source.language_code, source.quality_label, source.source_format.toUpperCase()].filter(Boolean).join(" · ")}</option>)}</select></div>}
-          <PlaybackMedia key={`${selected?.id}-${activeEpisodeId ?? "title"}`} source={selected} titleId={titleId} episodeId={activeEpisodeId} progress={progress} canSaveProgress={canSaveProgress} />
-          <p className="px-4 py-2 text-xs text-text-muted">{selected?.source_format === "embed" ? "Безопасный embed-плеер. Позиция воспроизведения у внешнего провайдера не синхронизируется." : progress && !progress.completed_at ? `Продолжение с ${formatTime(progress.position_seconds)}` : selected?.source_format === "hls" || selected?.source_format === "dash" ? "Если поток не запускается, проверь доступность источника и попробуй обновить страницу." : "Источник проверен редактором SubReel."}</p>
-        </>
+        <PlaybackMedia key={`${selected?.id}-${activeEpisodeId ?? "title"}`} source={selected} titleId={titleId}
+          episodeId={activeEpisodeId} progress={progress} canSaveProgress={canSaveProgress}
+          onFinished={() => { if (autoNext) go(1); }} />
       ) : (
-        <div className="flex aspect-video flex-col items-center justify-center px-6 text-center">
-          <h2 className="text-lg font-semibold">Для этой серии нет совместимого источника</h2>
-          <p className="mt-2 max-w-lg text-sm leading-6 text-text-secondary">Найден только внешний embed, который нельзя безопасно встроить в плеер.</p>
-        </div>
+        <div className="grid aspect-video place-items-center px-6 text-center text-sm text-text-secondary">Для этой серии пока нет источника</div>
       )}
+
+      <div className="space-y-4 bg-surface-1 p-4">
+        {/* Панель управления */}
+        <div className="flex flex-wrap items-center gap-2">
+          {episodes.length > 0 && <>
+            <button type="button" onClick={() => go(-1)} disabled={index <= 0} className="h-10 rounded-lg bg-surface-2 px-3 text-sm disabled:opacity-40">◀ Пред.</button>
+            <span className="px-2 text-sm font-semibold">{current ? `Серия ${current.episode_number}${current.name ? ` · ${current.name}` : ""}` : "Весь тайтл"}</span>
+            <button type="button" onClick={() => go(1)} disabled={index < 0 || index >= episodes.length - 1} className="h-10 rounded-lg bg-surface-2 px-3 text-sm disabled:opacity-40">След. ▶</button>
+          </>}
+          <label className="ml-auto flex items-center gap-2 text-xs text-text-secondary">
+            <input type="checkbox" checked={autoNext} onChange={(e) => setAutoNext(e.target.checked)} className="accent-accent" /> Автопереход
+          </label>
+        </div>
+
+        {/* Озвучки / источники вкладками */}
+        {options.length > 1 && (
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Источник">
+            {options.map((s) => (
+              <button key={s.id} type="button" role="tab" aria-selected={s.id === selected?.id} onClick={() => setSourceId(s.id)}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${s.id === selected?.id ? "bg-accent-strong text-white" : "bg-surface-2 text-text-secondary hover:text-white"}`}>
+                {[s.provider_name, s.language_code?.toUpperCase(), s.quality_label].filter(Boolean).join(" · ") || s.source_format.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Сетка серий, как в Anixart */}
+        {episodes.length > 0 && (
+          <div>
+            <p className="mb-2 text-xs uppercase tracking-wider text-text-muted">Серии · {episodes.length}</p>
+            <div className="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(3.25rem,1fr))] gap-1.5 overflow-y-auto pr-1">
+              {episodes.map((e) => {
+                const active = e.id === episodeId;
+                const seen = watched.has(e.id);
+                return (
+                  <button key={e.id} type="button" title={e.name ?? undefined} onClick={() => { setEpisodeId(e.id); setSourceId(""); }}
+                    className={`relative h-11 rounded-lg text-sm font-semibold transition ${active ? "bg-accent-strong text-white" : seen ? "bg-surface-2 text-text-muted" : "bg-surface-2 text-white hover:bg-surface-hover"}`}>
+                    {e.episode_number}
+                    {seen && !active && <span className="absolute right-1 top-0.5 text-[9px] text-accent">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {progress && !progress.completed_at && selected?.source_format !== "embed" && (
+          <p className="text-xs text-text-muted">Продолжение с {formatTime(progress.position_seconds)}</p>
+        )}
+      </div>
     </div>
   );
 }
