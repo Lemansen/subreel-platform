@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { contentLabels, coverBackground } from "@/lib/catalog";
+import Image from "next/image";
+import { contentLabels } from "@/lib/catalog";
 
 export type TitleBrief = {
   name: string;
@@ -15,11 +16,12 @@ function PosterCard({ title, caption }: { title: TitleBrief; caption?: string })
     <Link href={`/title/${title.slug}`} className="group block rounded-2xl focus-visible:outline-offset-4">
       <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-gradient-to-br from-violet-950 via-[#171321] to-[#0e0e14] ring-1 ring-white/10 transition group-hover:ring-accent/50">
         {title.cover_url ? (
-          <div
-            role="img"
-            aria-label={`Обложка: ${title.name}`}
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: coverBackground(title.cover_url) }}
+          <Image
+            src={title.cover_url}
+            alt={`Обложка: ${title.name}`}
+            fill
+            sizes="(max-width: 639px) 44vw, (max-width: 1023px) 28vw, 200px"
+            className="object-cover"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-white/25">SubReel</div>

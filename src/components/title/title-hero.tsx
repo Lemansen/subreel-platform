@@ -1,6 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { ReactNode } from "react";
-import { contentLabels, coverBackground } from "@/lib/catalog";
+import { contentLabels } from "@/lib/catalog";
 
 export type Cta = { href: string; label: string; disabled: boolean; icon: "play" | "book"; note?: string };
 
@@ -52,10 +53,14 @@ export function TitleHero({ title, genres, franchise, rating, cta, actions }: Pr
   return (
     <section className="relative isolate overflow-hidden">
       {backdrop && (
-        <div
+        <Image
           aria-hidden="true"
-          className="absolute inset-0 -z-20 scale-110 bg-cover bg-center opacity-60 blur-2xl saturate-150"
-          style={{ backgroundImage: coverBackground(backdrop) }}
+          src={backdrop}
+          alt=""
+          fill
+          sizes="100vw"
+          quality={35}
+          className="-z-20 scale-110 object-cover object-center opacity-60 blur-2xl saturate-150"
         />
       )}
       <div aria-hidden="true" className="absolute inset-0 -z-10 bg-gradient-to-b from-background/20 via-background/70 to-background" />
@@ -63,11 +68,12 @@ export function TitleHero({ title, genres, franchise, rating, cta, actions }: Pr
       <div className="mx-auto grid max-w-7xl items-end gap-8 px-5 pb-10 pt-10 sm:px-8 md:grid-cols-[240px_1fr] md:pt-16 lg:grid-cols-[300px_1fr] lg:gap-12">
         <div className="relative mx-auto aspect-[3/4] w-44 overflow-hidden rounded-2xl bg-gradient-to-br from-violet-950 via-[#171321] to-[#0e0e14] shadow-2xl shadow-black/60 ring-1 ring-white/15 md:mx-0 md:w-full">
           {title.cover_url ? (
-            <div
-              role="img"
-              aria-label={`Обложка: ${title.name}`}
-              className="absolute inset-0 bg-cover bg-center"
-              style={{ backgroundImage: coverBackground(title.cover_url) }}
+            <Image
+              src={title.cover_url}
+              alt={`Обложка: ${title.name}`}
+              fill
+              sizes="(max-width: 767px) 176px, (max-width: 1023px) 240px, 300px"
+              className="object-cover"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-2xl font-black text-white/25">SubReel</div>
