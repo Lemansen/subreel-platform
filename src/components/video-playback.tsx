@@ -7,11 +7,12 @@ type Episode = { id: string; episode_number: number; name: string | null; season
 type VideoSource = { id: string; episode_id: string | null; source_url: string; source_format: "hls" | "dash" | "mp4" | "embed"; provider_name: string | null; language_code: string | null; quality_label: string | null };
 type VideoProgress = { episode_id: string | null; position_seconds: number; duration_seconds: number | null; completed_at: string | null; updated_at: string };
 
-export function VideoPlayback({ titleId, episodes, sources, initialProgress, canSaveProgress }: { titleId: string; episodes: Episode[]; sources: VideoSource[]; initialProgress: VideoProgress[]; canSaveProgress: boolean }) {
+export function VideoPlayback({ titleId, episodes, sources, initialProgress, canSaveProgress, initialEpisodeId }: { titleId: string; episodes: Episode[]; sources: VideoSource[]; initialProgress: VideoProgress[]; canSaveProgress: boolean; initialEpisodeId?: string | null }) {
   const playable = useMemo(() => sources.filter((s) => ["mp4", "hls", "dash", "embed"].includes(s.source_format)), [sources]);
   const watched = useMemo(() => new Set(initialProgress.filter((p) => p.completed_at).map((p) => p.episode_id ?? "title")), [initialProgress]);
   const latest = initialProgress[0];
   const initial =
+    (initialEpisodeId && episodes.some((e) => e.id === initialEpisodeId) ? initialEpisodeId : null) ??
     (latest?.episode_id && episodes.some((e) => e.id === latest.episode_id) ? latest.episode_id : null) ??
     episodes.find((e) => playable.some((s) => s.episode_id === e.id))?.id ?? "title";
 

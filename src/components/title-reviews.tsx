@@ -28,7 +28,7 @@ export function TitleReviews({
     const result = await saveTitleReview(titleId, rating, body, isPublic);
     setPending(false);
     if (!result.ok) {
-      setMessage(result.reason === "sign-in" ? "Войди в аккаунт, чтобы сохранить оценку." : result.reason === "invalid" ? "Проверь текст отзыва (до 3000 символов)." : result.reason === "title" ? "Этот тайтл сейчас недоступен." : "Не удалось сохранить. Проверь, применена ли миграция 019.");
+      setMessage(result.reason === "sign-in" ? "Войди в аккаунт, чтобы сохранить оценку." : result.reason === "invalid" ? "Проверь текст отзыва (до 3000 символов)." : result.reason === "title" ? "Этот тайтл сейчас недоступен." : "Не удалось сохранить оценку. Попробуй ещё раз позже.");
       return;
     }
     setMessage("Оценка сохранена.");

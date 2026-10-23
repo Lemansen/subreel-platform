@@ -9,12 +9,13 @@ type ReadingProgress = { chapter_id: string | null; current_page: number; total_
 type Width = "narrow" | "normal" | "wide";
 const widthClass: Record<Width, string> = { narrow: "max-w-2xl", normal: "max-w-3xl", wide: "max-w-5xl" };
 
-export function ReadingViewer({ titleId, chapters, sources, initialProgress, canSaveProgress }: { titleId: string; chapters: Chapter[]; sources: ReadingSource[]; initialProgress: ReadingProgress[]; canSaveProgress: boolean }) {
+export function ReadingViewer({ titleId, chapters, sources, initialProgress, canSaveProgress, initialChapterId }: { titleId: string; chapters: Chapter[]; sources: ReadingSource[]; initialProgress: ReadingProgress[]; canSaveProgress: boolean; initialChapterId?: string | null }) {
   const ordered = useMemo(() => [...chapters].sort((a, b) => a.sort_order - b.sort_order), [chapters]);
   const [read, setRead] = useState(() => new Set(initialProgress.filter((p) => p.completed_at).map((p) => p.chapter_id ?? "title")));
   const [chapterId, setChapterId] = useState(() => {
     const last = initialProgress[0]?.chapter_id;
-    return (last && ordered.some((c) => c.id === last) ? last : null)
+    return (initialChapterId && ordered.some((c) => c.id === initialChapterId) ? initialChapterId : null)
+      ?? (last && ordered.some((c) => c.id === last) ? last : null)
       ?? ordered.find((c) => sources.some((s) => s.chapter_id === c.id))?.id ?? "title";
   });
   const [sourceId, setSourceId] = useState("");
