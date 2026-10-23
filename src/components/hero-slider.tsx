@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export type Banner = {
@@ -68,14 +67,11 @@ export function HeroSlider({ banners }: { banners: Banner[] }) {
               aria-label={`${i + 1} из ${count}`}
               className="relative h-[320px] min-w-full snap-center sm:h-[400px] lg:h-[480px]"
             >
-              <Image
+              <img
                 src={b.image}
                 alt=""
-                fill
-                priority={i === 0}
-                sizes="(max-width: 767px) 100vw, 1280px"
-                quality={75}
-                className="object-cover"
+                loading={i === 0 ? "eager" : "lazy"}
+                className="absolute inset-0 h-full w-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-[#09090d] via-[#09090d]/60 to-transparent" />
               <div className="absolute inset-0 bg-gradient-to-t from-[#09090d]/80 via-transparent to-transparent" />
