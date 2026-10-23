@@ -1,50 +1,30 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { unstable_rethrow } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ContentCard, type CatalogCardTitle } from "@/components/content-card";
 import { SiteHeader, SiteHeaderFallback } from "@/components/site-header";
+import { CatalogFilters, FiltersButton } from "@/components/catalog/catalog-filters";
 import { contentLabels } from "@/lib/catalog";
+import {
+  DEFAULT_SORT,
+  activeFilterCount,
+  catalogHref,
+  parseFilters,
+  pluralRu,
+  yearLabel,
+  type CatalogFilterState,
+} from "@/lib/catalog-query";
 
-type SearchParams = Promise<{
-  q?: string | string[];
-  type?: string | string[];
-  genre?: string | string[];
-  year_from?: string | string[];
-  year_to?: string | string[];
-  sort?: string | string[];
-  page?: string | string[];
-}>;
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+type Genre = { id: string; name: string; slug: string };
+type Chip = { key: string; label: string; href: string };
 
 const PAGE_SIZE = 24;
-const CONTENT_TYPES = Object.keys(contentLabels);
 
 function one(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
-}
-
-function safeSearch(value: string): string {
-  return value
-    .normalize("NFC")
-    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
-}
-
-function readYear(value: string): number | null {
-  if (!/^\d{4}$/.test(value)) return null;
-  const year = Number(value);
-  return year >= 1800 && year <= 2200 ? year : null;
-}
-
-function pageHref(page: number, params: URLSearchParams) {
-  const next = new URLSearchParams(params);
-  if (page <= 1) next.delete("page");
-  else next.set("page", String(page));
-  const query = next.toString();
-  return query ? `/catalog?${query}` : "/catalog";
 }
 
 export const metadata = {
@@ -52,80 +32,54 @@ export const metadata = {
   description: "Ищи и открывай аниме, фильмы, сериалы, мангу и книги в SubReel.",
 };
 
-async function CatalogContent({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
+async function CatalogContent({ searchParams }: { searchParams: SearchParams }) {
   await connection();
   const params = await searchParams;
-  const rawQuery = one(params.q);
-  const queryText = safeSearch(rawQuery);
-  const type = one(params.type);
-  const genreSlug = one(params.genre).toLowerCase();
-  const yearFrom = readYear(one(params.year_from));
-  const yearTo = readYear(one(params.year_to));
-  const sort = ["newest", "title", "year"].includes(one(params.sort))
-    ? one(params.sort)
-    : "newest";
   const requestedPage = Number.parseInt(one(params.page), 10);
-  const page = Number.isFinite(requestedPage)
-    ? Math.min(Math.max(requestedPage, 1), 10000)
-    : 1;
+  const page = Number.isFinite(requestedPage) ? Math.min(Math.max(requestedPage, 1), 10000) : 1;
 
+  let filters: CatalogFilterState = parseFilters(params);
   let titles: CatalogCardTitle[] = [];
-  let genres: { id: string; name: string; slug: string }[] = [];
+  let genres: Genre[] = [];
   let total = 0;
   let catalogError = false;
 
   try {
     const supabase = await createClient();
-    const genresResult = await supabase
-      .from("genres")
-      .select("id, name, slug")
-      .order("name");
+    const genresResult = await supabase.from("genres").select("id, name, slug").order("name");
     if (genresResult.error) throw genresResult.error;
     genres = genresResult.data ?? [];
 
-    const selectedGenre = genres.find((genre) => genre.slug === genreSlug);
-    const invalidGenre = genreSlug.length > 0 && !selectedGenre;
+    // Неизвестные жанры из URL игнорируем.
+    const selectedGenres = genres.filter((genre) => filters.genres.includes(genre.slug));
+    filters = { ...filters, genres: selectedGenres.map((genre) => genre.slug) };
 
-    if (!invalidGenre) {
-      const selectFields = selectedGenre
-        ? "id, name, slug, description, cover_url, content_type, release_year, title_genres!inner(genre_id)"
-        : "id, name, slug, description, cover_url, content_type, release_year";
-      let catalogQuery = supabase
-        .from("titles")
-        .select(selectFields, { count: "exact" })
-        .eq("status", "published");
+    const selectFields = selectedGenres.length
+      ? "id, name, slug, description, cover_url, content_type, release_year, title_genres!inner(genre_id)"
+      : "id, name, slug, description, cover_url, content_type, release_year";
+    let query = supabase.from("titles").select(selectFields, { count: "exact" }).eq("status", "published");
 
-      if (CONTENT_TYPES.includes(type)) {
-        catalogQuery = catalogQuery.eq("content_type", type);
-      }
-      if (queryText) {
-        catalogQuery = catalogQuery.or(
-          `name.ilike.%${queryText}%,original_name.ilike.%${queryText}%`
-        );
-      }
-      if (yearFrom !== null) catalogQuery = catalogQuery.gte("release_year", yearFrom);
-      if (yearTo !== null) catalogQuery = catalogQuery.lte("release_year", yearTo);
-      if (selectedGenre) {
-        catalogQuery = catalogQuery.eq("title_genres.genre_id", selectedGenre.id);
-      }
-      if (sort === "title") catalogQuery = catalogQuery.order("name");
-      else if (sort === "year") {
-        catalogQuery = catalogQuery.order("release_year", {
-          ascending: false,
-          nullsFirst: false,
-        });
-      } else catalogQuery = catalogQuery.order("created_at", { ascending: false });
+    if (filters.types.length) query = query.in("content_type", filters.types);
+    if (filters.q) query = query.or(`name.ilike.%${filters.q}%,original_name.ilike.%${filters.q}%`);
+    if (filters.yearFrom !== null) query = query.gte("release_year", filters.yearFrom);
+    if (filters.yearTo !== null) query = query.lte("release_year", filters.yearTo);
+    if (selectedGenres.length) query = query.in("title_genres.genre_id", selectedGenres.map((genre) => genre.id));
 
-      const start = (page - 1) * PAGE_SIZE;
-      const result = await catalogQuery.range(start, start + PAGE_SIZE - 1);
-      if (result.error) throw result.error;
-      titles = (result.data ?? []) as unknown as CatalogCardTitle[];
-      total = result.count ?? 0;
+    if (filters.sort === "title") query = query.order("name");
+    else if (filters.sort === "year") query = query.order("release_year", { ascending: false, nullsFirst: false });
+    else query = query.order("created_at", { ascending: false });
+    // Уникальный хвост сортировки: без него записи с одинаковым годом «прыгают» между страницами.
+    query = query.order("id");
+
+    const start = (page - 1) * PAGE_SIZE;
+    const result = await query.range(start, start + PAGE_SIZE - 1);
+    if (result.error) {
+      // Страница за пределами выдачи (например, после смены фильтров по старой ссылке) — на первую.
+      if (page > 1 && result.error.code === "PGRST103") redirect(catalogHref(filters));
+      throw result.error;
     }
+    titles = (result.data ?? []) as unknown as CatalogCardTitle[];
+    total = result.count ?? 0;
   } catch (error) {
     unstable_rethrow(error);
     console.error("SubReel catalog page failed:", error);
@@ -133,13 +87,33 @@ async function CatalogContent({
   }
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const currentFilters = new URLSearchParams();
-  if (queryText) currentFilters.set("q", queryText);
-  if (CONTENT_TYPES.includes(type)) currentFilters.set("type", type);
-  if (genres.some((genre) => genre.slug === genreSlug)) currentFilters.set("genre", genreSlug);
-  if (yearFrom !== null) currentFilters.set("year_from", String(yearFrom));
-  if (yearTo !== null) currentFilters.set("year_to", String(yearTo));
-  if (sort !== "newest") currentFilters.set("sort", sort);
+  const activeCount = activeFilterCount(filters);
+
+  const chips: Chip[] = [];
+  if (filters.q) chips.push({ key: "q", label: `Поиск: ${filters.q}`, href: catalogHref({ ...filters, q: "" }) });
+  for (const type of filters.types) {
+    chips.push({
+      key: `type-${type}`,
+      label: contentLabels[type] ?? type,
+      href: catalogHref({ ...filters, types: filters.types.filter((item) => item !== type) }),
+    });
+  }
+  for (const genre of genres.filter((item) => filters.genres.includes(item.slug))) {
+    chips.push({
+      key: `genre-${genre.slug}`,
+      label: genre.name,
+      href: catalogHref({ ...filters, genres: filters.genres.filter((slug) => slug !== genre.slug) }),
+    });
+  }
+  if (filters.yearFrom !== null || filters.yearTo !== null) {
+    chips.push({
+      key: "years",
+      label: yearLabel(filters.yearFrom, filters.yearTo),
+      href: catalogHref({ ...filters, yearFrom: null, yearTo: null }),
+    });
+  }
+
+  const pagerLink = "inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm";
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -153,101 +127,115 @@ async function CatalogContent({
           </p>
         </div>
 
-        <form action="/catalog" className="grid gap-3 rounded-2xl border border-border-subtle bg-surface-1 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-4">
-          <div className="sm:col-span-2 lg:col-span-4">
-            <label htmlFor="catalog-query" className="mb-1.5 block text-sm font-medium">Название</label>
-            <input
-              id="catalog-query"
-              name="q"
-              type="search"
-              maxLength={100}
-              defaultValue={queryText}
-              placeholder="Название на русском или оригинальное"
-              className="h-11 w-full rounded-xl border border-border-subtle bg-background px-3 text-sm outline-none placeholder:text-text-muted focus:border-accent"
-            />
-          </div>
-          <div>
-            <label htmlFor="catalog-type" className="mb-1.5 block text-sm font-medium">Тип</label>
-            <select id="catalog-type" name="type" defaultValue={CONTENT_TYPES.includes(type) ? type : ""} className="h-11 w-full rounded-xl border border-border-subtle bg-background px-3 text-sm">
-              <option value="">Все типы</option>
-              {CONTENT_TYPES.map((value) => <option key={value} value={value}>{contentLabels[value]}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="catalog-genre" className="mb-1.5 block text-sm font-medium">Жанр</label>
-            <select id="catalog-genre" name="genre" defaultValue={genres.some((genre) => genre.slug === genreSlug) ? genreSlug : ""} className="h-11 w-full rounded-xl border border-border-subtle bg-background px-3 text-sm">
-              <option value="">Все жанры</option>
-              {genres.map((genre) => <option key={genre.id} value={genre.slug}>{genre.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="catalog-year-from" className="mb-1.5 block text-sm font-medium">Год от</label>
-            <input id="catalog-year-from" name="year_from" type="number" min="1800" max="2200" defaultValue={yearFrom ?? ""} className="h-11 w-full rounded-xl border border-border-subtle bg-background px-3 text-sm" />
-          </div>
-          <div>
-            <label htmlFor="catalog-year-to" className="mb-1.5 block text-sm font-medium">Год до</label>
-            <input id="catalog-year-to" name="year_to" type="number" min="1800" max="2200" defaultValue={yearTo ?? ""} className="h-11 w-full rounded-xl border border-border-subtle bg-background px-3 text-sm" />
-          </div>
-          <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center justify-between gap-3 pt-1">
-            <div className="flex items-center gap-2">
-              <label htmlFor="catalog-sort" className="text-sm text-text-secondary">Сортировка</label>
-              <select id="catalog-sort" name="sort" defaultValue={sort} className="h-10 rounded-lg border border-border-subtle bg-background px-3 text-sm">
-                <option value="newest">Недавно добавленные</option>
-                <option value="title">По названию</option>
-                <option value="year">Сначала новые по году</option>
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <Link href="/catalog" className="inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm font-medium transition hover:bg-surface-2">Сбросить</Link>
-              <button type="submit" className="min-h-11 rounded-xl bg-accent-strong px-5 text-sm font-semibold text-white transition hover:brightness-110">Показать</button>
-            </div>
-          </div>
-        </form>
+        <div className="grid gap-8 lg:grid-cols-[272px_minmax(0,1fr)]">
+          <CatalogFilters genres={genres} filters={filters} total={total} />
 
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-text-secondary" aria-live="polite">
-            {catalogError ? "Каталог временно недоступен" : `${total} ${total === 1 ? "произведение" : "произведений"}`}
-          </p>
-          {!catalogError && pageCount > 1 && <p className="text-sm text-text-muted">Страница {page} из {pageCount}</p>}
+          <div className="min-w-0">
+            <div className="flex gap-3">
+              <form action="/catalog" role="search" className="relative min-w-0 flex-1">
+                {filters.types.map((type) => <input key={type} type="hidden" name="type" value={type} />)}
+                {filters.genres.map((slug) => <input key={slug} type="hidden" name="genre" value={slug} />)}
+                {filters.yearFrom !== null && <input type="hidden" name="year_from" value={filters.yearFrom} />}
+                {filters.yearTo !== null && <input type="hidden" name="year_to" value={filters.yearTo} />}
+                {filters.sort !== DEFAULT_SORT && <input type="hidden" name="sort" value={filters.sort} />}
+                <label htmlFor="catalog-query" className="sr-only">Поиск по названию</label>
+                <span aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted">⌕</span>
+                <input
+                  id="catalog-query"
+                  name="q"
+                  type="search"
+                  maxLength={100}
+                  defaultValue={filters.q}
+                  placeholder="Название на русском или оригинальное"
+                  className="h-11 w-full rounded-xl border border-border-subtle bg-surface-1 pl-9 pr-24 text-sm outline-none placeholder:text-text-muted focus:border-accent"
+                />
+                <button type="submit" className="absolute right-1.5 top-1.5 min-h-8 rounded-lg bg-accent-strong px-3 text-sm font-semibold text-white transition hover:brightness-110">
+                  Найти
+                </button>
+              </form>
+              <FiltersButton count={activeCount} />
+            </div>
+
+            {chips.length > 0 && (
+              <ul aria-label="Выбранные фильтры" className="mt-4 flex flex-wrap items-center gap-2">
+                {chips.map((chip) => (
+                  <li key={chip.key}>
+                    <Link
+                      href={chip.href}
+                      aria-label={`Убрать: ${chip.label}`}
+                      className="inline-flex min-h-10 items-center gap-2 rounded-full border border-accent/30 bg-accent/10 py-1 pl-3.5 pr-2 text-sm text-accent transition hover:bg-accent/20"
+                    >
+                      {chip.label}
+                      <span aria-hidden className="grid size-5 place-items-center rounded-full bg-accent/20 text-[10px]">✕</span>
+                    </Link>
+                  </li>
+                ))}
+                <li>
+                  <Link href="/catalog" className="inline-flex min-h-10 items-center px-2 text-sm text-text-secondary underline-offset-4 transition hover:text-foreground hover:underline">
+                    Сбросить
+                  </Link>
+                </li>
+              </ul>
+            )}
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-text-secondary" aria-live="polite">
+                {catalogError
+                  ? "Каталог временно недоступен"
+                  : `${total} ${pluralRu(total, ["произведение", "произведения", "произведений"])}`}
+              </p>
+              {!catalogError && pageCount > 1 && <p className="text-sm text-text-muted">Страница {page} из {pageCount}</p>}
+            </div>
+
+            {catalogError ? (
+              <div className="mt-4 rounded-2xl border border-warning/20 bg-warning/5 p-6 sm:p-8" role="alert">
+                <h2 className="font-semibold text-warning">Не удалось загрузить каталог</h2>
+                <p className="mt-2 text-sm leading-6 text-text-secondary">Фильтры сохранены. Попробуй обновить страницу чуть позже.</p>
+                <Link href={catalogHref(filters, page)} className="mt-4 inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm font-medium hover:bg-surface-2">
+                  Повторить
+                </Link>
+              </div>
+            ) : titles.length === 0 ? (
+              chips.length === 0 ? (
+                <div className="mt-4 rounded-2xl border border-dashed border-border-subtle px-6 py-14 text-center sm:py-20">
+                  <p className="text-lg font-semibold">Каталог пока наполняется</p>
+                  <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-text-secondary">
+                    Опубликованных произведений ещё нет. Загляни позже: новые тайтлы появятся здесь.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-2xl border border-dashed border-border-subtle px-6 py-14 text-center sm:py-20">
+                  <p className="text-lg font-semibold">Ничего не найдено</p>
+                  <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-text-secondary">
+                    {filters.q ? `По запросу «${filters.q}» с этими фильтрами ничего нет. ` : ""}
+                    Убери часть фильтров выше или сбрось их все.
+                  </p>
+                  <Link href="/catalog" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-accent-strong px-5 text-sm font-semibold text-white hover:brightness-110">
+                    Сбросить фильтры
+                  </Link>
+                </div>
+              )
+            ) : (
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
+                {titles.map((title) => <ContentCard key={title.id ?? title.slug} title={title} />)}
+              </div>
+            )}
+
+            {!catalogError && pageCount > 1 && (
+              <nav aria-label="Страницы каталога" className="mt-10 flex items-center justify-center gap-3">
+                {page > 1 ? <Link href={catalogHref(filters, page - 1)} className={`${pagerLink} hover:bg-surface-1`}>Назад</Link> : <span className={`${pagerLink} text-text-muted`}>Назад</span>}
+                <span className="px-2 text-sm text-text-secondary">{page} / {pageCount}</span>
+                {page < pageCount ? <Link href={catalogHref(filters, page + 1)} className={`${pagerLink} hover:bg-surface-1`}>Дальше</Link> : <span className={`${pagerLink} text-text-muted`}>Дальше</span>}
+              </nav>
+            )}
+          </div>
         </div>
-
-        {catalogError ? (
-          <div className="mt-4 rounded-2xl border border-warning/20 bg-warning/5 p-6 sm:p-8" role="alert">
-            <h2 className="font-semibold text-warning">Не удалось загрузить каталог</h2>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">Фильтры сохранены. Попробуй обновить страницу чуть позже.</p>
-            <Link href={pageHref(page, currentFilters)} className="mt-4 inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm font-medium hover:bg-surface-2">Повторить</Link>
-          </div>
-        ) : titles.length === 0 ? (
-          <div className="mt-4 rounded-2xl border border-dashed border-border-subtle px-6 py-14 text-center sm:py-20">
-            <p className="text-lg font-semibold">Ничего не найдено</p>
-            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-text-secondary">
-              Попробуй изменить запрос или сбросить часть фильтров.
-            </p>
-            <Link href="/catalog" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-accent-strong px-5 text-sm font-semibold text-white hover:brightness-110">Сбросить фильтры</Link>
-          </div>
-        ) : (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-            {titles.map((title) => <ContentCard key={title.id ?? title.slug} title={title} />)}
-          </div>
-        )}
-
-        {!catalogError && pageCount > 1 && (
-          <nav aria-label="Страницы каталога" className="mt-10 flex items-center justify-center gap-3">
-            {page > 1 ? <Link href={pageHref(page - 1, currentFilters)} className="inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm hover:bg-surface-1">Назад</Link> : <span className="inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm text-text-muted">Назад</span>}
-            <span className="px-2 text-sm text-text-secondary">{page} / {pageCount}</span>
-            {page < pageCount ? <Link href={pageHref(page + 1, currentFilters)} className="inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm hover:bg-surface-1">Дальше</Link> : <span className="inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-4 text-sm text-text-muted">Дальше</span>}
-          </nav>
-        )}
       </div>
     </main>
   );
 }
 
-export default function CatalogPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
+export default function CatalogPage({ searchParams }: { searchParams: SearchParams }) {
   return (
     <Suspense
       fallback={
@@ -255,11 +243,16 @@ export default function CatalogPage({
           <SiteHeaderFallback />
           <div className="mx-auto max-w-7xl animate-pulse px-4 py-12 sm:px-6 lg:px-8">
             <div className="h-9 w-48 rounded-lg bg-surface-2" />
-            <div className="mt-8 h-40 rounded-2xl bg-surface-1" />
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {Array.from({ length: 8 }, (_, index) => (
-                <div key={index} className="aspect-[3/4] rounded-2xl bg-surface-1" />
-              ))}
+            <div className="mt-8 grid gap-8 lg:grid-cols-[272px_minmax(0,1fr)]">
+              <div className="hidden h-[34rem] rounded-2xl bg-surface-1 lg:block" />
+              <div>
+                <div className="h-11 rounded-xl bg-surface-1" />
+                <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                  {Array.from({ length: 8 }, (_, index) => (
+                    <div key={index} className="aspect-[2/3] rounded-xl bg-surface-1" />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </main>
