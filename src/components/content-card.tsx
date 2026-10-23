@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { contentLabels, coverBackground } from "@/lib/catalog";
+import Image from "next/image";
+import { contentLabels } from "@/lib/catalog";
 
 export type CatalogCardTitle = {
   id?: string;
@@ -22,11 +23,12 @@ export function ContentCard({ title, rating }: { title: CatalogCardTitle; rating
     >
       <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-surface-2 shadow-lg shadow-black/30 ring-1 ring-white/5 transition duration-300 group-hover:-translate-y-1 group-hover:shadow-accent/20 group-hover:ring-accent/40">
         {title.cover_url ? (
-          <div
-            role="img"
-            aria-label={`Обложка: ${title.name}`}
-            className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-105"
-            style={{ backgroundImage: coverBackground(title.cover_url) }}
+          <Image
+            src={title.cover_url}
+            alt={`Обложка: ${title.name}`}
+            fill
+            sizes="(max-width: 639px) 46vw, (max-width: 1279px) 30vw, 230px"
+            className="object-cover transition duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-accent-strong/60 to-background p-4 text-center">
