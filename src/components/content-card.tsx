@@ -11,13 +11,16 @@ export type CatalogCardTitle = {
   release_year: number | null;
 };
 
-export function ContentCard({ title }: { title: CatalogCardTitle }) {
+const readable = new Set(["manga", "manhwa", "manhua", "light_novel", "web_novel", "book"]);
+
+export function ContentCard({ title, rating }: { title: CatalogCardTitle; rating?: number | null }) {
+  const isReadable = readable.has(title.content_type);
   return (
     <Link
       href={`/title/${title.slug}`}
-      className="group overflow-hidden rounded-2xl border border-border-subtle bg-surface-1 transition hover:-translate-y-0.5 hover:border-accent/50 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent"
+      className="group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
-      <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-accent-strong via-surface-1 to-background">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-surface-2 shadow-lg shadow-black/30 ring-1 ring-white/5 transition duration-300 group-hover:-translate-y-1 group-hover:shadow-accent/20 group-hover:ring-accent/40">
         {title.cover_url ? (
           <div
             role="img"
@@ -26,29 +29,34 @@ export function ContentCard({ title }: { title: CatalogCardTitle }) {
             style={{ backgroundImage: coverBackground(title.cover_url) }}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center p-4 text-center">
-            <span className="text-xl font-bold text-white/35">{title.name}</span>
+          <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-accent-strong/60 to-background p-4 text-center">
+            <span className="text-lg font-bold text-white/40">{title.name}</span>
           </div>
         )}
-        <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/10" />
-        <span className="absolute left-3 top-3 rounded-lg border border-white/15 bg-black/65 px-2.5 py-1 text-xs text-white backdrop-blur">
-          {contentLabels[title.content_type] ?? title.content_type}
-        </span>
-        {title.release_year && (
-          <span className="absolute bottom-3 left-3 text-xs font-medium text-white/85">
-            {title.release_year}
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-black/0 opacity-80 transition group-hover:opacity-100" />
+
+        <div className="absolute left-2 top-2 flex flex-wrap gap-1">
+          <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold text-white ${isReadable ? "bg-emerald-600/90" : "bg-accent-strong/90"}`}>
+            {contentLabels[title.content_type] ?? title.content_type}
           </span>
-        )}
+        </div>
+        {rating ? (
+          <span className="absolute right-2 top-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-bold text-amber-300 backdrop-blur">
+            ★ {rating.toFixed(1)}
+          </span>
+        ) : null}
+
+        <div className="absolute inset-x-0 bottom-0 flex translate-y-2 items-center justify-center pb-3 opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100">
+          <span className="rounded-full bg-white/95 px-4 py-1.5 text-xs font-bold text-black">
+            {isReadable ? "Читать" : "Смотреть"}
+          </span>
+        </div>
       </div>
-      <div className="p-3.5 sm:p-4">
-        <h2 className="line-clamp-2 min-h-10 font-semibold leading-5 transition group-hover:text-accent">
-          {title.name}
-        </h2>
-        {title.description && (
-          <p className="mt-2 line-clamp-2 text-xs leading-5 text-text-secondary">
-            {title.description}
-          </p>
-        )}
+      <div className="mt-2 px-0.5">
+        <h3 className="line-clamp-2 text-sm font-semibold leading-5 transition group-hover:text-accent">{title.name}</h3>
+        <p className="mt-0.5 text-xs text-text-muted">
+          {[title.release_year, contentLabels[title.content_type]].filter(Boolean).join(" · ")}
+        </p>
       </div>
     </Link>
   );
