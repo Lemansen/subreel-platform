@@ -41,7 +41,7 @@ export function TitleTabs({ tabs }: { tabs: TabItem[] }) {
       <div
         role="tablist"
         aria-label="Разделы тайтла"
-        className="-mx-5 flex gap-1 overflow-x-auto border-b border-border-subtle px-5 sm:mx-0 sm:px-0"
+        className="sticky top-16 z-30 -mx-5 flex gap-1 overflow-x-auto border-b border-border-subtle bg-background/95 px-5 shadow-sm backdrop-blur-xl sm:mx-0 sm:px-0"
       >
         {tabs.map((tab, index) => {
           const selected = tab.id === active;
