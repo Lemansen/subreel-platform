@@ -342,6 +342,7 @@ async function TitleContent({ params }: { params: Params }) {
             count: unitCount,
             content: (
               <EpisodesPanel
+                slug={title.slug}
                 isVideo={isVideo}
                 seasons={seasons}
                 episodes={episodes}
