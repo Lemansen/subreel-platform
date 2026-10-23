@@ -3,31 +3,16 @@ import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { contentLabels } from "@/lib/catalog";
 import { SiteHeader } from "@/components/site-header";
 import { ContentCard } from "@/components/content-card";
 import { ContentRow } from "@/components/content-row";
 import { HeroSlider, type Banner } from "@/components/hero-slider";
 
-/* ───────── Настройки: поправь под свою схему ───────── */
-const POPULAR_COLUMN = "views_count"; // колонка в titles, по которой считаем популярность
 const ROW_SIZE = 12;
-const titleHref = (slug: string) => `/titles/${slug}`;
-const TYPE_LABELS: Record<string, string> = {
-  anime: "Аниме",
-  manga: "Манга",
-  manhwa: "Манхва",
-  ranobe: "Ранобэ",
-  movie: "Фильм",
-  series: "Сериал",
-  dorama: "Дорама",
-  cartoon: "Мультфильм",
-  book: "Книга",
-};
-const READ_TYPES = new Set(["manga", "manhwa", "ranobe", "webnovel", "book"]);
-/* ──────────────────────────────────────────────────── */
-
+const READ_TYPES = new Set(["manga", "manhwa", "manhua", "light_novel", "web_novel", "book"]);
+const titleHref = (slug: string) => `/title/${slug}`;
 const COLS = "id, name, slug, description, cover_url, content_type, release_year";
-const PROGRESS_SELECT = "*, titles(name, slug, cover_url)";
 
 type CatalogTitle = {
   id: string;
@@ -39,30 +24,30 @@ type CatalogTitle = {
   release_year: number | null;
 };
 
-type BannerRow = {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  banner_url: string;
-  content_type: string;
-  release_year: number | null;
-};
+type BannerRow = CatalogTitle & { banner_url: string };
+type TitleLite = { id: string; name: string; slug: string; cover_url: string | null };
+type EpisodeRow = { id: string; episode_number: number };
+type ChapterRow = { id: string; chapter_label: string };
 
-type ProgressRow = {
+type VideoRow = {
+  title_id: string;
+  episode_id: string | null;
+  position_seconds: number;
+  duration_seconds: number | null;
+  completed_at: string | null;
   updated_at: string;
-  titles: { name: string; slug: string; cover_url: string | null } | null;
-  [key: string]: unknown;
 };
 
-type ContinueItem = {
-  name: string;
-  slug: string;
-  cover_url: string | null;
-  label: string;
-  percent: number;
-  updatedAt: string;
+type ReadingRow = {
+  title_id: string;
+  chapter_id: string | null;
+  current_page: number;
+  total_pages: number | null;
+  completed_at: string | null;
+  updated_at: string;
 };
+
+type ContinueItem = { href: string; name: string; cover_url: string | null; label: string; percent: number };
 
 type Home = {
   banners: Banner[];
@@ -85,46 +70,105 @@ async function rows<T>(
   return data ?? [];
 }
 
-const num = (v: unknown) => (typeof v === "number" ? v : 0);
-const percent = (done: unknown, total: unknown) =>
-  num(total) > 0 ? Math.min(100, Math.round((num(done) / num(total)) * 100)) : 0;
+const ratio = (done: number, total: number | null) =>
+  total && total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
 
 async function loadContinue(supabase: Supabase, userId: string): Promise<ContinueItem[]> {
-  const latest = (table: string) =>
-    rows<ProgressRow>(
+  const [video, reading] = await Promise.all([
+    rows<VideoRow>(
       supabase
-        .from(table)
-        .select(PROGRESS_SELECT)
+        .from("video_progress")
+        .select("title_id, episode_id, position_seconds, duration_seconds, completed_at, updated_at")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })
-        .limit(20)
-    );
+        .limit(30)
+    ),
+    rows<ReadingRow>(
+      supabase
+        .from("reading_progress")
+        .select("title_id, chapter_id, current_page, total_pages, completed_at, updated_at")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(30)
+    ),
+  ]);
 
-  const [video, reading] = await Promise.all([latest("video_progress"), latest("reading_progress")]);
+  const entries = [
+    ...video.map((r) => ({
+      kind: "video" as const,
+      titleId: r.title_id,
+      unitId: r.episode_id,
+      percent: ratio(r.position_seconds, r.duration_seconds),
+      done: Boolean(r.completed_at),
+      updatedAt: Date.parse(r.updated_at),
+    })),
+    ...reading.map((r) => ({
+      kind: "read" as const,
+      titleId: r.title_id,
+      unitId: r.chapter_id,
+      percent: ratio(r.current_page, r.total_pages),
+      done: Boolean(r.completed_at),
+      updatedAt: Date.parse(r.updated_at),
+    })),
+  ].sort((a, b) => b.updatedAt - a.updatedAt);
 
-  const toItem = (r: ProgressRow, isVideo: boolean): ContinueItem | null => {
-    if (!r.titles) return null;
-    const n = isVideo ? r.episode_number : r.chapter_number;
-    return {
-      ...r.titles,
-      label: `${isVideo ? "Серия" : "Глава"}${n ? ` ${n}` : ""}`,
-      percent: isVideo
-        ? percent(r.progress_seconds, r.duration_seconds)
-        : percent(r.page, r.total_pages),
-      updatedAt: r.updated_at,
-    };
-  };
-
+  // Последняя запись на тайтл; завершённые в «Продолжить» не нужны.
   const seen = new Set<string>();
-  return [...video.map((r) => toItem(r, true)), ...reading.map((r) => toItem(r, false))]
-    .filter((i): i is ContinueItem => i !== null && i.percent < 95)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .filter((i) => {
-      if (seen.has(i.slug)) return false;
-      seen.add(i.slug);
+  const picked = entries
+    .filter((e) => {
+      if (seen.has(e.titleId)) return false;
+      seen.add(e.titleId);
       return true;
     })
+    .filter((e) => !e.done)
     .slice(0, ROW_SIZE);
+  if (picked.length === 0) return [];
+
+  const unitIds = (kind: "video" | "read") =>
+    picked.flatMap((e) => (e.kind === kind && e.unitId ? [e.unitId] : []));
+  const episodeIds = unitIds("video");
+  const chapterIds = unitIds("read");
+
+  const [titles, episodes, chapters] = await Promise.all([
+    rows<TitleLite>(
+      supabase
+        .from("titles")
+        .select("id, name, slug, cover_url")
+        .in("id", picked.map((e) => e.titleId))
+        .eq("status", "published")
+    ),
+    episodeIds.length
+      ? rows<EpisodeRow>(supabase.from("title_episodes").select("id, episode_number").in("id", episodeIds))
+      : Promise.resolve<EpisodeRow[]>([]),
+    chapterIds.length
+      ? rows<ChapterRow>(supabase.from("title_chapters").select("id, chapter_label").in("id", chapterIds))
+      : Promise.resolve<ChapterRow[]>([]),
+  ]);
+
+  const titleById = new Map(titles.map((t) => [t.id, t] as const));
+  const episodeNo = new Map(episodes.map((e) => [e.id, e.episode_number] as const));
+  const chapterLabel = new Map(chapters.map((c) => [c.id, c.chapter_label] as const));
+
+  return picked.flatMap((e) => {
+    const t = titleById.get(e.titleId);
+    if (!t) return [];
+    const isVideo = e.kind === "video";
+    const no = isVideo && e.unitId ? episodeNo.get(e.unitId) : undefined;
+    const label = isVideo
+      ? no !== undefined
+        ? `Серия ${Number(no)}`
+        : "Продолжить просмотр"
+      : (e.unitId && chapterLabel.get(e.unitId)) || "Продолжить чтение";
+    return [
+      {
+        href: `${isVideo ? "/watch" : "/read"}/${t.slug}`,
+        name: t.name,
+        cover_url: t.cover_url,
+        label,
+        percent: e.percent,
+      },
+    ];
+  });
 }
 
 async function loadHome(): Promise<Home> {
@@ -136,16 +180,15 @@ async function loadHome(): Promise<Home> {
     rows<BannerRow>(
       supabase
         .from("titles")
-        .select("id, name, slug, description, banner_url, content_type, release_year")
+        .select(`${COLS}, banner_url`)
         .eq("status", "published")
         .not("banner_url", "is", null)
         .order("created_at", newest)
         .limit(5)
     ),
     rows<CatalogTitle>(published().order("created_at", newest).limit(ROW_SIZE)),
-    rows<CatalogTitle>(
-      published().order(POPULAR_COLUMN, { ascending: false, nullsFirst: false }).limit(ROW_SIZE)
-    ),
+    // Функция из supabase/sql/028_popular_titles.sql. Пока её нет, ряд просто скрыт.
+    rows<CatalogTitle>(supabase.rpc("popular_titles", { limit_count: ROW_SIZE })),
     rows<CatalogTitle>(published().eq("content_type", "anime").order("created_at", newest).limit(ROW_SIZE)),
     rows<CatalogTitle>(published().eq("content_type", "manga").order("created_at", newest).limit(ROW_SIZE)),
     supabase.auth
@@ -159,7 +202,7 @@ async function loadHome(): Promise<Home> {
     description: b.description,
     image: b.banner_url,
     href: titleHref(b.slug),
-    badge: [TYPE_LABELS[b.content_type] ?? b.content_type, b.release_year].filter(Boolean).join(" · "),
+    badge: [contentLabels[b.content_type] ?? b.content_type, b.release_year].filter(Boolean).join(" · "),
     cta: READ_TYPES.has(b.content_type) ? "Читать" : "Смотреть",
   }));
 
@@ -185,7 +228,7 @@ function TitleRow({ heading, href, titles }: { heading: string; href: string; ti
 
 function ContinueCard({ item }: { item: ContinueItem }) {
   return (
-    <Link href={titleHref(item.slug)} className="group block">
+    <Link href={item.href} className="group block">
       <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/10 bg-[#111119]">
         {item.cover_url && (
           <img
@@ -231,7 +274,7 @@ async function HomeContent() {
         {continueItems.length > 0 && (
           <ContentRow title="Продолжить">
             {continueItems.map((item) => (
-              <Slot key={item.slug}>
+              <Slot key={item.href}>
                 <ContinueCard item={item} />
               </Slot>
             ))}
