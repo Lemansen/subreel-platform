@@ -96,7 +96,7 @@ export function VideoPlayback({ titleId, episodes, sources, initialProgress, can
   );
 }
 
-function PlaybackMedia({ source, titleId, episodeId, progress, canSaveProgress }: { source?: VideoSource; titleId: string; episodeId: string | null; progress?: VideoProgress; canSaveProgress: boolean }) {
+function PlaybackMedia({ source, titleId, episodeId, progress, canSaveProgress, onFinished }: { source?: VideoSource; titleId: string; episodeId: string | null; progress?: VideoProgress; canSaveProgress: boolean; onFinished?: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const lastSaved = useRef(0);
@@ -186,7 +186,7 @@ function PlaybackMedia({ source, titleId, episodeId, progress, canSaveProgress }
     );
   }
 
-  return <div className="relative bg-black"><video ref={videoRef} className="aspect-video w-full" controls playsInline preload="metadata" src={source?.source_format === "mp4" ? source.source_url : undefined} onLoadedMetadata={(event) => restore(event.currentTarget)} onTimeUpdate={(event) => persist(event.currentTarget)} onPause={(event) => { if (!event.currentTarget.ended) persist(event.currentTarget, false, true); }} onEnded={(event) => persist(event.currentTarget, true, true)} />{error && <p role="alert" className="absolute inset-x-0 bottom-12 mx-auto w-fit rounded-lg bg-black/85 px-4 py-2 text-sm text-danger">{error}</p>}</div>;
+  return <div className="relative bg-black"><video ref={videoRef} className="aspect-video w-full" controls playsInline preload="metadata" src={source?.source_format === "mp4" ? source.source_url : undefined} onLoadedMetadata={(event) => restore(event.currentTarget)} onTimeUpdate={(event) => persist(event.currentTarget)} onPause={(event) => { if (!event.currentTarget.ended) persist(event.currentTarget, false, true); }} onEnded={(event) => { persist(event.currentTarget, true, true); onFinished?.(); }} />{error && <p role="alert" className="absolute inset-x-0 bottom-12 mx-auto w-fit rounded-lg bg-black/85 px-4 py-2 text-sm text-danger">{error}</p>}</div>;
 }
 
 function getTrustedEmbedUrl(rawUrl: string): { url: string; allow: string } | null {
