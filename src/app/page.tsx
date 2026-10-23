@@ -1,11 +1,33 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import { Suspense } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { Suspense, type ReactNode } from "react";
 import { unstable_rethrow } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/components/site-header";
 import { ContentCard } from "@/components/content-card";
+import { ContentRow } from "@/components/content-row";
+import { HeroSlider, type Banner } from "@/components/hero-slider";
 
+/* ───────── Настройки: поправь под свою схему ───────── */
+const POPULAR_COLUMN = "views_count"; // колонка в titles, по которой считаем популярность
+const ROW_SIZE = 12;
+const titleHref = (slug: string) => `/titles/${slug}`;
+const TYPE_LABELS: Record<string, string> = {
+  anime: "Аниме",
+  manga: "Манга",
+  manhwa: "Манхва",
+  ranobe: "Ранобэ",
+  movie: "Фильм",
+  series: "Сериал",
+  dorama: "Дорама",
+  cartoon: "Мультфильм",
+  book: "Книга",
+};
+const READ_TYPES = new Set(["manga", "manhwa", "ranobe", "webnovel", "book"]);
+/* ──────────────────────────────────────────────────── */
+
+const COLS = "id, name, slug, description, cover_url, content_type, release_year";
+const PROGRESS_SELECT = "*, titles(name, slug, cover_url)";
 
 type CatalogTitle = {
   id: string;
@@ -17,245 +39,254 @@ type CatalogTitle = {
   release_year: number | null;
 };
 
+type BannerRow = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  banner_url: string;
+  content_type: string;
+  release_year: number | null;
+};
+
+type ProgressRow = {
+  updated_at: string;
+  titles: { name: string; slug: string; cover_url: string | null } | null;
+  [key: string]: unknown;
+};
+
+type ContinueItem = {
+  name: string;
+  slug: string;
+  cover_url: string | null;
+  label: string;
+  percent: number;
+  updatedAt: string;
+};
+
+type Home = {
+  banners: Banner[];
+  continueItems: ContinueItem[];
+  fresh: CatalogTitle[];
+  popular: CatalogTitle[];
+  anime: CatalogTitle[];
+  manga: CatalogTitle[];
+};
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+const EMPTY: Home = { banners: [], continueItems: [], fresh: [], popular: [], anime: [], manga: [] };
+
+async function rows<T>(
+  query: PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+): Promise<T[]> {
+  const { data, error } = await query;
+  if (error) console.error("SubReel query failed:", error.message);
+  return data ?? [];
+}
+
+const num = (v: unknown) => (typeof v === "number" ? v : 0);
+const percent = (done: unknown, total: unknown) =>
+  num(total) > 0 ? Math.min(100, Math.round((num(done) / num(total)) * 100)) : 0;
+
+async function loadContinue(supabase: Supabase, userId: string): Promise<ContinueItem[]> {
+  const latest = (table: string) =>
+    rows<ProgressRow>(
+      supabase
+        .from(table)
+        .select(PROGRESS_SELECT)
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(20)
+    );
+
+  const [video, reading] = await Promise.all([latest("video_progress"), latest("reading_progress")]);
+
+  const toItem = (r: ProgressRow, isVideo: boolean): ContinueItem | null => {
+    if (!r.titles) return null;
+    const n = isVideo ? r.episode_number : r.chapter_number;
+    return {
+      ...r.titles,
+      label: `${isVideo ? "Серия" : "Глава"}${n ? ` ${n}` : ""}`,
+      percent: isVideo
+        ? percent(r.progress_seconds, r.duration_seconds)
+        : percent(r.page, r.total_pages),
+      updatedAt: r.updated_at,
+    };
+  };
+
+  const seen = new Set<string>();
+  return [...video.map((r) => toItem(r, true)), ...reading.map((r) => toItem(r, false))]
+    .filter((i): i is ContinueItem => i !== null && i.percent < 95)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .filter((i) => {
+      if (seen.has(i.slug)) return false;
+      seen.add(i.slug);
+      return true;
+    })
+    .slice(0, ROW_SIZE);
+}
+
+async function loadHome(): Promise<Home> {
+  const supabase = await createClient();
+  const published = () => supabase.from("titles").select(COLS).eq("status", "published");
+  const newest = { ascending: false } as const;
+
+  const [bannerRows, fresh, popular, anime, manga, continueItems] = await Promise.all([
+    rows<BannerRow>(
+      supabase
+        .from("titles")
+        .select("id, name, slug, description, banner_url, content_type, release_year")
+        .eq("status", "published")
+        .not("banner_url", "is", null)
+        .order("created_at", newest)
+        .limit(5)
+    ),
+    rows<CatalogTitle>(published().order("created_at", newest).limit(ROW_SIZE)),
+    rows<CatalogTitle>(
+      published().order(POPULAR_COLUMN, { ascending: false, nullsFirst: false }).limit(ROW_SIZE)
+    ),
+    rows<CatalogTitle>(published().eq("content_type", "anime").order("created_at", newest).limit(ROW_SIZE)),
+    rows<CatalogTitle>(published().eq("content_type", "manga").order("created_at", newest).limit(ROW_SIZE)),
+    supabase.auth
+      .getUser()
+      .then(({ data }) => (data.user ? loadContinue(supabase, data.user.id) : [])),
+  ]);
+
+  const banners: Banner[] = bannerRows.map((b) => ({
+    id: b.id,
+    name: b.name,
+    description: b.description,
+    image: b.banner_url,
+    href: titleHref(b.slug),
+    badge: [TYPE_LABELS[b.content_type] ?? b.content_type, b.release_year].filter(Boolean).join(" · "),
+    cta: READ_TYPES.has(b.content_type) ? "Читать" : "Смотреть",
+  }));
+
+  return { banners, continueItems, fresh, popular, anime, manga };
+}
+
+const Slot = ({ children }: { children: ReactNode }) => (
+  <div className="w-36 shrink-0 snap-start sm:w-44">{children}</div>
+);
+
+function TitleRow({ heading, href, titles }: { heading: string; href: string; titles: CatalogTitle[] }) {
+  if (titles.length === 0) return null;
+  return (
+    <ContentRow title={heading} href={href}>
+      {titles.map((t) => (
+        <Slot key={t.id}>
+          <ContentCard title={t} />
+        </Slot>
+      ))}
+    </ContentRow>
+  );
+}
+
+function ContinueCard({ item }: { item: ContinueItem }) {
+  return (
+    <Link href={titleHref(item.slug)} className="group block">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/10 bg-[#111119]">
+        {item.cover_url && (
+          <img
+            src={item.cover_url}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+          />
+        )}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-3 pb-3 pt-10">
+          <p className="text-xs font-medium text-zinc-200">{item.label}</p>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/20">
+            <div className="h-full rounded-full bg-violet-400" style={{ width: `${item.percent}%` }} />
+          </div>
+        </div>
+      </div>
+      <p className="mt-2 line-clamp-2 text-sm font-medium leading-5">{item.name}</p>
+    </Link>
+  );
+}
+
 async function HomeContent() {
   await connection();
-  let titles: CatalogTitle[] = [];
-  let catalogError = false;
 
+  let data = EMPTY;
   try {
-    const supabase = await createClient();
-
-    const { data, error } = await supabase
-      .from("titles")
-      .select(
-        "id, name, slug, description, cover_url, content_type, release_year"
-      )
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(8);
-
-    if (error) {
-      console.error("SubReel catalog query failed:", error.message);
-      catalogError = true;
-    } else {
-      titles = (data ?? []) as CatalogTitle[];
-    }
+    data = await loadHome();
   } catch (error) {
     unstable_rethrow(error);
-    console.error("SubReel catalog is unavailable:", error);
-    catalogError = true;
+    console.error("SubReel home is unavailable:", error);
   }
+
+  const { banners, continueItems, fresh, popular, anime, manga } = data;
+  const isEmpty = !banners.length && !fresh.length && !popular.length && !anime.length && !manga.length;
 
   return (
     <main className="min-h-screen bg-[#09090d] text-white">
       <SiteHeader active="home" />
 
-      <section className="relative isolate overflow-hidden border-b border-white/[0.06]">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-32 -top-40 -z-10 h-[520px] w-[520px] rounded-full bg-violet-600/20 blur-[130px]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-48 left-0 -z-10 h-[400px] w-[400px] rounded-full bg-fuchsia-600/10 blur-[120px]"
-        />
+      {banners.length > 0 && <HeroSlider banners={banners} />}
 
-        <div className="mx-auto grid min-h-[470px] max-w-7xl items-center gap-10 px-5 py-20 sm:px-8 lg:grid-cols-[1.2fr_0.8fr] lg:py-28">
-          <div>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-400/20 bg-violet-400/[0.08] px-3.5 py-2 text-xs font-medium text-violet-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
-              Одна платформа — целые вселенные
-            </div>
-
-            <h1 className="max-w-3xl text-5xl font-black leading-[1.06] tracking-tight sm:text-6xl lg:text-7xl">
-              Твои истории.
-              <br />
-              <span className="bg-gradient-to-r from-violet-300 via-fuchsia-300 to-indigo-300 bg-clip-text text-transparent">
-                Твой SubReel.
-              </span>
-            </h1>
-
-            <p className="mt-6 max-w-xl text-base leading-7 text-zinc-400 sm:text-lg">
-              Аниме, фильмы, сериалы, манга и книги в одном пространстве.
-              Находи новые истории, открывай связанные вселенные и продолжай
-              с того места, где остановился.
-            </p>
-
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link
-                href="/catalog"
-                className="rounded-xl bg-violet-500 px-6 py-3.5 text-sm font-semibold transition hover:bg-violet-400"
-              >
-                Открыть каталог <span aria-hidden="true">→</span>
-              </Link>
-              <a
-                href="#about"
-                className="rounded-xl border border-white/10 bg-white/[0.03] px-6 py-3.5 text-sm font-semibold transition hover:bg-white/[0.07]"
-              >
-                О платформе
-              </a>
-            </div>
-          </div>
-
-          <div className="hidden lg:block">
-            <div className="relative mx-auto aspect-[4/3] max-w-md">
-              <div className="absolute inset-8 rotate-[-8deg] rounded-3xl border border-violet-400/20 bg-gradient-to-br from-violet-500/20 to-transparent" />
-              <div className="absolute inset-8 rotate-[7deg] rounded-3xl border border-fuchsia-400/20 bg-gradient-to-tr from-fuchsia-500/10 to-transparent" />
-              <div className="absolute inset-0 flex flex-col justify-between rounded-3xl border border-white/10 bg-[#111119]/90 p-8 shadow-2xl shadow-violet-950/40">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold tracking-wide">SUBREEL UNIVERSE</span>
-                  <span className="rounded-lg bg-violet-400/10 px-2.5 py-1 text-xs text-violet-300">
-                    PREVIEW
-                  </span>
-                </div>
-                <div>
-                  <div className="mb-3 flex gap-2">
-                    <span className="rounded-full bg-violet-400/15 px-3 py-1 text-xs text-violet-200">
-                      Смотреть
-                    </span>
-                    <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-zinc-400">
-                      Читать
-                    </span>
-                  </div>
-                  <p className="text-3xl font-black">Больше, чем каталог.</p>
-                  <p className="mt-3 max-w-xs text-sm leading-6 text-zinc-400">
-                    Связанные произведения, единые коллекции и твоя история
-                    просмотра.
-                  </p>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    ["01", "Франшизы"],
-                    ["02", "Истории"],
-                    ["03", "Коллекции"],
-                  ].map(([number, label]) => (
-                    <div key={number} className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-3">
-                      <p className="text-lg font-bold text-violet-300">{number}</p>
-                      <p className="mt-1 text-xs text-zinc-500">{label}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="catalog" className="mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:py-20">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-violet-300">
-              Исследуй вселенные
-            </p>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Каталог SubReel
-            </h2>
-            <p className="mt-3 text-sm text-zinc-400">
-              Опубликованные произведения из общей базы платформы.
-            </p>
-          </div>
-          <span className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-zinc-400">
-            {titles.length} {titles.length === 1 ? "тайтл" : "тайтлов"} на странице
-          </span>
-          <Link href="/catalog" className="text-sm font-medium text-violet-300 transition hover:text-violet-200">
-            Весь каталог <span aria-hidden="true">→</span>
-          </Link>
-        </div>
-
-        {catalogError ? (
-          <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.05] p-8">
-            <h3 className="font-semibold text-amber-200">
-              Не удалось загрузить каталог
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Проверь подключение Supabase и доступ к таблице titles.
-              Подробности ошибки доступны в терминале разработки.
-            </p>
-          </div>
-        ) : titles.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-14 text-center sm:py-20">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-violet-400/20 bg-violet-400/10 text-2xl">
-              ✦
-            </div>
-            <h3 className="mt-5 text-xl font-semibold">
-              Здесь начнётся твоя следующая история
-            </h3>
-            <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-zinc-400">
-              Каталог подключён к базе данных, но опубликованных произведений
-              пока нет. Когда добавим первый тайтл и опубликуем его, он появится
-              здесь автоматически.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-            {titles.map((title) => (
-              <ContentCard key={title.id} title={title} />
+      <div className="pb-8 pt-3">
+        {continueItems.length > 0 && (
+          <ContentRow title="Продолжить">
+            {continueItems.map((item) => (
+              <Slot key={item.slug}>
+                <ContinueCard item={item} />
+              </Slot>
             ))}
-          </div>
+          </ContentRow>
         )}
-      </section>
 
-      <section id="about" className="border-y border-white/[0.06] bg-white/[0.02]">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300">
-            Единое пространство
-          </p>
-          <h2 className="mt-3 max-w-2xl text-3xl font-bold sm:text-4xl">
-            Не просто список. Целая вселенная историй.
-          </h2>
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            {[
-              {
-                title: "Смотри",
-                description: "Аниме, фильмы, сериалы, дорамы и мультфильмы.",
-              },
-              {
-                title: "Читай",
-                description: "Манга, манхва, ранобэ, веб-новеллы и книги.",
-              },
-              {
-                title: "Открывай",
-                description: "Франшизы, адаптации, продолжения и связанные произведения.",
-              },
-            ].map((item) => (
-              <div key={item.title} className="rounded-2xl border border-white/[0.08] bg-[#0d0d13] p-6">
-                <h3 className="text-lg font-semibold">{item.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  {item.description}
-                </p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-8 flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-[#0d0d13] p-5 sm:flex-row sm:items-center">
+        <TitleRow heading="Новинки" href="/catalog" titles={fresh} />
+        <TitleRow heading="Популярное" href="/catalog" titles={popular} />
+        <TitleRow heading="Аниме" href="/catalog?type=anime" titles={anime} />
+        <TitleRow heading="Манга" href="/catalog?type=manga" titles={manga} />
+
+        {isEmpty && (
+          <section className="mx-auto max-w-7xl px-5 py-12 sm:px-8">
+            <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-14 text-center">
+              <h2 className="text-xl font-semibold">Здесь начнётся твоя следующая история</h2>
+              <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-zinc-400">
+                Опубликованных тайтлов пока нет, либо каталог недоступен. Проверь подключение Supabase
+                и таблицу titles — детали ошибки в терминале.
+              </p>
+            </div>
+          </section>
+        )}
+      </div>
+
+      <footer className="mx-auto max-w-7xl border-t border-white/[0.06] px-5 py-8 sm:px-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <Link href="/" className="font-bold text-zinc-300">
+            Sub<span className="text-violet-400">Reel</span>
+          </Link>
+          <div className="flex items-center gap-4">
             <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer" aria-label="The Movie Database (TMDB)">
-              <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg" alt="The Movie Database (TMDB)" className="h-auto w-20"/>
+              <img
+                src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg"
+                alt="The Movie Database (TMDB)"
+                className="h-auto w-14"
+              />
             </a>
-            <p className="max-w-2xl text-sm leading-6 text-zinc-400">
+            <p className="max-w-xs text-xs leading-5 text-zinc-500">
               This product uses the TMDB API but is not endorsed or certified by TMDB.
             </p>
           </div>
         </div>
-      </section>
-
-      <footer className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-8 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-        <Link href="/" className="font-bold text-zinc-300">
-          Sub<span className="text-violet-400">Reel</span>
-        </Link>
-        <p>Твои истории — в одном месте.</p>
       </footer>
     </main>
   );
 }
 
-
 export default function Home() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-[#09090d] p-8 text-white">
-          <p className="animate-pulse text-sm text-zinc-400">
-            Загружаем SubReel...
-          </p>
+        <main className="min-h-screen bg-[#09090d] text-white">
+          <div className="mx-auto max-w-7xl px-5 pt-5 sm:px-8">
+            <div className="h-[320px] animate-pulse rounded-3xl bg-white/[0.04] sm:h-[400px] lg:h-[480px]" />
+          </div>
         </main>
       }
     >
