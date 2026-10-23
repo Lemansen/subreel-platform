@@ -7,12 +7,15 @@ import { ReadingViewer } from "@/components/reading-viewer";
 import { createClient } from "@/lib/supabase/server";
 
 type Params = Promise<{ slug: string }>;
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const readingTypes = ["manga", "manhwa", "manhua", "light_novel", "web_novel", "book"];
 type ReadingProgress = { chapter_id: string | null; current_page: number; total_pages: number | null; completed_at: string | null; updated_at: string };
 
-async function ReadContent({ params }: { params: Params }) {
+async function ReadContent({ params, searchParams }: { params: Params; searchParams: SearchParams }) {
   await connection();
   const { slug } = await params;
+  const query = await searchParams;
+  const requestedId = Array.isArray(query.chapter) ? query.chapter[0] : query.chapter;
   const supabase = await createClient();
   const { data: title, error } = await supabase
     .from("titles")
@@ -71,7 +74,7 @@ async function ReadContent({ params }: { params: Params }) {
             <Link href={`/title/${title.slug}`} className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-accent-strong px-4 text-sm font-semibold text-white hover:bg-violet-600">К тайтлу</Link>
           </section>
         ) : (
-          sources.length > 0 ? <ReadingViewer titleId={title.id} chapters={chapters} sources={sources} initialProgress={progress} canSaveProgress={Boolean(user)} /> : <section className="mt-6 grid min-h-[55vh] place-items-center rounded-2xl border border-border-subtle bg-surface-1 px-6 py-12 text-center">
+          sources.length > 0 ? <ReadingViewer titleId={title.id} chapters={chapters} sources={sources} initialProgress={progress} canSaveProgress={Boolean(user)} initialChapterId={requestedId ?? null} /> : <section className="mt-6 grid min-h-[55vh] place-items-center rounded-2xl border border-border-subtle bg-surface-1 px-6 py-12 text-center">
             <div className="max-w-xl">
               <div aria-hidden="true" className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-accent/20 bg-accent/10 text-2xl text-accent">▤</div>
               <h2 className="mt-5 text-lg font-semibold">Материалы для чтения пока не добавлены</h2>
@@ -85,10 +88,10 @@ async function ReadContent({ params }: { params: Params }) {
   );
 }
 
-export default function ReadPage({ params }: { params: Params }) {
+export default function ReadPage({ params, searchParams }: { params: Params; searchParams: SearchParams }) {
   return (
     <Suspense fallback={<main className="min-h-screen animate-pulse bg-background"><div className="h-[68px] border-b border-border-subtle" /><div className="mx-auto mt-10 min-h-[55vh] max-w-6xl rounded-2xl bg-surface-1" /></main>}>
-      <ReadContent params={params} />
+      <ReadContent params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
