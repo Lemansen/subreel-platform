@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
-type Active = "catalog" | "home" | "library";
+type Active = "catalog" | "home" | "library" | "profile";
 
-export async function SiteHeader({ active }: { active?: Active | "catalog" | "home" }) {
+export async function SiteHeader({ active }: { active?: Active }) {
   let accountLabel: string | null = null;
   let avatarUrl: string | null = null;
   let isCatalogAdmin = false;
@@ -52,8 +52,8 @@ export async function SiteHeader({ active }: { active?: Active | "catalog" | "ho
           </form>
 
           {accountLabel ? (
-            <Link href="/account" title={accountLabel} aria-label={`Профиль: ${accountLabel}`}
-              className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-accent-strong text-sm font-bold text-white ring-2 ring-transparent transition hover:ring-accent">
+            <Link href="/account" title={accountLabel} aria-label={`Профиль: ${accountLabel}`} aria-current={active === "profile" ? "page" : undefined}
+              className={`grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-accent-strong text-sm font-bold text-white ring-2 transition hover:ring-accent ${active === "profile" ? "ring-accent" : "ring-transparent"}`}>
               {avatarUrl
                 // eslint-disable-next-line @next/next/no-img-element
                 ? <img src={avatarUrl} alt="" className="size-full object-cover" />
