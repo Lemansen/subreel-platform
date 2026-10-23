@@ -13,15 +13,16 @@ export const contentLabels: Record<string, string> = {
 };
 
 /**
- * Как читать строку title_relationships (source → target):
- * «source является {type} для target».
- * Это допущение: PRD не фиксирует направление. Если решите иначе —
- * поменяйте местами два словаря ниже.
+ * Направление title_relationships: source_title_id → target_title_id.
+ * relationship_type описывает source относительно target. Поэтому при показе
+ * карточки target на странице source подпись prequel/sequel инвертируется;
+ * при показе карточки source на странице target подпись сохраняется.
+ * Основано на контракте схемы; фактические строки production-БД нужно отдельно проверить.
  */
 export const outgoingRelationLabels: Record<string, string> = {
   adaptation: "Адаптация произведения",
-  sequel: "Продолжение произведения",
-  prequel: "Приквел к произведению",
+  sequel: "Приквел",
+  prequel: "Продолжение",
   spin_off: "Спин-офф произведения",
   remake: "Ремейк произведения",
   side_story: "Побочная история к произведению",
@@ -31,8 +32,8 @@ export const outgoingRelationLabels: Record<string, string> = {
 
 export const incomingRelationLabels: Record<string, string> = {
   adaptation: "Адаптация этого произведения",
-  sequel: "Продолжение этого произведения",
-  prequel: "Приквел этого произведения",
+  sequel: "Продолжение",
+  prequel: "Приквел",
   spin_off: "Спин-офф этого произведения",
   remake: "Ремейк этого произведения",
   side_story: "Побочная история этого произведения",
