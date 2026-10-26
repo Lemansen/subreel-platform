@@ -2,8 +2,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isState, NO_STORE_HEADERS, safeEqualHex, sha256Hex } from "@/lib/launcher-auth-handoff";
 
-export const runtime = "nodejs";
-
 function invalid() {
   return Response.json({ valid: false }, { status: 404, headers: NO_STORE_HEADERS });
 }

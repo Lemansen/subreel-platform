@@ -12,8 +12,6 @@ import {
   sha256Hex,
 } from "@/lib/launcher-auth-handoff";
 
-export const runtime = "nodejs";
-
 function failure(status: number, error: string) {
   return Response.json({ error }, { status, headers: NO_STORE_HEADERS });
 }

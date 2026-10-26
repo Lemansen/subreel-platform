@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://subreel.ru").replace(/\/$/, "");
 
@@ -10,7 +10,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${siteUrl}/catalog`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
   ];
   try {
-    const supabase = await createClient();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    if (!supabaseUrl || !supabaseKey) throw new Error("Supabase public environment variables are missing.");
+    const supabase = createSupabaseClient(supabaseUrl, supabaseKey, {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    });
     const [titles, franchises] = await Promise.all([
       supabase.from("titles").select("slug, updated_at").eq("status", "published").limit(50000),
       supabase.from("franchises").select("slug, updated_at").eq("status", "published").limit(10000),
