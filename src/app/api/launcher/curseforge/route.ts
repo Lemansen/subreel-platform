@@ -19,9 +19,10 @@ function jsonError(status: number, message: string) {
 async function authorize(request: Request): Promise<{ userId: string } | Response> {
   const authorization = request.headers.get("authorization") ?? "";
   const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!token) return jsonError(401, "Войдите в аккаунт SubReel, чтобы открыть CurseForge.");
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!token || !url || !key) return jsonError(401, "Войдите в аккаунт SubReel, чтобы открыть CurseForge.");
+  if (!url || !key) return jsonError(503, "На сервере SubReel не настроены NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
 
   const now = Date.now();
   const fingerprint = createHash("sha256").update(token).digest("hex");
