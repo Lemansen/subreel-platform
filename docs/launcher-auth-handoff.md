@@ -8,7 +8,11 @@ The launcher authorization endpoints use a short-lived request, PKCE, a state va
 2. Add `LAUNCHER_AUTH_ENCRYPTION_KEY` to the platform server environment. Generate a fresh 32-byte key with PowerShell:
 
    ```powershell
-   [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+   $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+   $bytes = New-Object byte[] 32
+   $rng.GetBytes($bytes)
+   [Convert]::ToBase64String($bytes)
+   $rng.Dispose()
    ```
 
    Keep the same value across deployments and backups. Never place it in `.env.example`, client-side variables, or the launcher.
