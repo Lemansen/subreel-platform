@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { safeInternalPath } from "@/lib/safe-internal-path";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,7 +32,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace("/account");
+      const requestedNext = new URLSearchParams(window.location.search).get("next");
+      router.replace(safeInternalPath(requestedNext, window.location.origin));
       router.refresh();
     } catch {
       setError("Не удалось подключиться к сервису авторизации. Попробуй ещё раз.");
