@@ -54,14 +54,14 @@ export async function SiteHeader({ active }: { active?: Active }) {
 
         {accountLabel ? (
           <Link href="/account" title={accountLabel} aria-label={`Профиль: ${accountLabel}`} aria-current={active === "profile" ? "page" : undefined}
-            className={`grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-accent-strong text-sm font-bold text-white ring-2 transition hover:ring-accent ${active === "profile" ? "ring-accent" : "ring-transparent"}`}>
+            className={`hidden size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-accent-strong text-sm font-bold text-white ring-2 transition hover:ring-accent sm:grid ${active === "profile" ? "ring-accent" : "ring-transparent"}`}>
             {avatarUrl
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={avatarUrl} alt="" className="size-full object-cover" />
               : accountLabel.slice(0, 1).toUpperCase()}
           </Link>
         ) : (
-          <Link href="/login" className="shrink-0 rounded-full bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:brightness-110">Войти</Link>
+          <Link href="/login" className="hidden shrink-0 rounded-full bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:brightness-110 sm:inline-flex">Войти</Link>
         )}
         <MobileNavDrawer accountLabel={accountLabel} isCatalogAdmin={isCatalogAdmin} />
       </div>
