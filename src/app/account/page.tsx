@@ -34,6 +34,7 @@ async function AccountGate() {
     supabase.rpc("user_library_stats"),
     friendsOf().eq("status", "accepted").or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`),
     friendsOf().eq("addressee_id", user.id).eq("status", "pending"),
+    supabase.from("launcher_game_profiles").select("minecraft_uuid, minecraft_username, updated_at").eq("user_id", user.id).maybeSingle(),
   ]);
 
   const profile = (profileRes.data ?? null) as AccountProfile | null;
@@ -65,6 +66,7 @@ async function AccountGate() {
     <AccountForm
       userId={user.id}
       email={user.email ?? ""}
+      minecraftProfile={(minecraftRes.data ?? null) as MinecraftProfile | null}
       profile={profile}
       appealStatus={appealStatus}
       summary={summary}
