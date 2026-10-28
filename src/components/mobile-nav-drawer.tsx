@@ -62,6 +62,14 @@ export function MobileNavDrawer({ accountLabel, isCatalogAdmin }: Props) {
             ) : (
               <Link href="/login" onClick={() => setOpen(false)} className="mt-5 flex min-h-11 items-center justify-center rounded-xl bg-violet-600 font-semibold hover:bg-violet-500">Войти в SubReel ID</Link>
             )}
+            <form action="/catalog" role="search" className="mt-5">
+              <label htmlFor="mobile-site-search" className="sr-only">Поиск по каталогу</label>
+              <div className="relative">
+                <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">⌕</span>
+                <input id="mobile-site-search" type="search" name="q" placeholder="Поиск: фильмы, аниме, манга…"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] pl-9 pr-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/60" />
+              </div>
+            </form>
             <nav className="mt-5 flex-1 space-y-6 overflow-y-auto pb-4">
               {groups.map((group) => (
                 <section key={group.title}>
