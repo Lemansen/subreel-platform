@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 
-type Active = "catalog" | "home" | "library" | "profile";
+type Active = "catalog" | "home" | "library" | "profile" | "minecraft";
 
 export async function SiteHeader({ active }: { active?: Active }) {
   let accountLabel: string | null = null;
@@ -20,71 +21,58 @@ export async function SiteHeader({ active }: { active?: Active }) {
     }
   } catch { /* навигация должна работать без auth */ }
 
-  const links: { href: string; label: string; key: Active; icon: string }[] = [
-    { href: "/", label: "Главная", key: "home", icon: "⌂" },
-    { href: "/catalog", label: "Каталог", key: "catalog", icon: "▦" },
-    { href: accountLabel ? "/account/library" : "/login", label: "Библиотека", key: "library", icon: "❏" },
+  const links: { href: string; label: string; key: Active }[] = [
+    { href: "/", label: "Главная", key: "home" },
+    { href: "/cinema", label: "Кино и чтение", key: "home" },
+    { href: "/catalog", label: "Каталог", key: "catalog" },
+    { href: "/minecraft", label: "Minecraft", key: "minecraft" },
   ];
 
   return (
-    <>
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-background/70 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
-          <Link href="/" aria-label="SubReel — главная" className="shrink-0 text-xl font-black tracking-tight sm:text-2xl">
-            Sub<span className="text-accent">Reel</span>
-          </Link>
+    <header className="sticky top-0 z-40 border-b border-white/5 bg-background/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
+        <MobileNavDrawer accountLabel={accountLabel} isCatalogAdmin={isCatalogAdmin} />
+        <Link href="/" aria-label="SubReel — главная" className="shrink-0 text-xl font-black tracking-tight sm:text-2xl">
+          Sub<span className="text-accent">Reel</span>
+        </Link>
 
-          <nav aria-label="Основная навигация" className="ml-4 hidden items-center gap-1 text-sm md:flex">
-            {links.map((l) => (
-              <Link key={l.key} href={l.href} aria-current={active === l.key ? "page" : undefined}
-                className={`rounded-lg px-3 py-2 transition ${active === l.key ? "bg-surface-2 text-white" : "text-text-secondary hover:bg-surface-1 hover:text-white"}`}>
-                {l.label}
-              </Link>
-            ))}
-            {isCatalogAdmin && <Link href="/admin" className="rounded-lg px-3 py-2 text-text-secondary hover:bg-surface-1 hover:text-white">Управление</Link>}
-          </nav>
-
-          <form action="/catalog" role="search" className="relative ml-auto min-w-0 max-w-md flex-1">
-            <label className="sr-only" htmlFor="site-search">Поиск</label>
-            <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">⌕</span>
-            <input id="site-search" type="search" name="q" placeholder="Аниме, манга, фильмы…"
-              className="h-10 w-full rounded-full border border-white/5 bg-surface-1 pl-9 pr-4 text-sm text-white outline-none transition placeholder:text-text-muted focus:border-accent focus:bg-surface-2" />
-          </form>
-
-          {accountLabel ? (
-            <Link href="/account" title={accountLabel} aria-label={`Профиль: ${accountLabel}`} aria-current={active === "profile" ? "page" : undefined}
-              className={`grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-accent-strong text-sm font-bold text-white ring-2 transition hover:ring-accent ${active === "profile" ? "ring-accent" : "ring-transparent"}`}>
-              {avatarUrl
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={avatarUrl} alt="" className="size-full object-cover" />
-                : accountLabel.slice(0, 1).toUpperCase()}
-            </Link>
-          ) : (
-            <Link href="/login" className="shrink-0 rounded-full bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:brightness-110">Войти</Link>
-          )}
-        </div>
-      </header>
-
-      {/* Нижнее меню на телефоне, как в приложениях */}
-      <nav aria-label="Мобильная навигация"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/5 bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
-        <div className="grid grid-cols-4">
-          {[...links, { href: accountLabel ? "/account" : "/login", label: "Профиль", key: "profile" as const, icon: "◉" }].map((l) => (
-            <Link key={l.key} href={l.href} aria-current={active === l.key ? "page" : undefined}
-              className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] ${active === l.key ? "text-accent" : "text-text-muted"}`}>
-              <span aria-hidden className="text-lg leading-none">{l.icon}</span>{l.label}
+        <nav aria-label="Основная навигация" className="ml-3 hidden items-center gap-1 text-sm lg:flex">
+          {links.map((l) => (
+            <Link key={l.href + l.label} href={l.href} aria-current={active === l.key ? "page" : undefined}
+              className={`rounded-lg px-3 py-2 transition ${active === l.key ? "bg-surface-2 text-white" : "text-text-secondary hover:bg-surface-1 hover:text-white"}`}>
+              {l.label}
             </Link>
           ))}
-        </div>
-      </nav>
-    </>
+          {isCatalogAdmin && <Link href="/admin" className="rounded-lg px-3 py-2 text-text-secondary hover:bg-surface-1 hover:text-white">Управление</Link>}
+        </nav>
+
+        <form action="/catalog" role="search" className="relative ml-auto hidden min-w-0 max-w-md flex-1 sm:block">
+          <label className="sr-only" htmlFor="site-search">Поиск</label>
+          <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">⌕</span>
+          <input id="site-search" type="search" name="q" placeholder="Аниме, манга, фильмы…"
+            className="h-10 w-full rounded-full border border-white/5 bg-surface-1 pl-9 pr-4 text-sm text-white outline-none transition placeholder:text-text-muted focus:border-accent focus:bg-surface-2" />
+        </form>
+
+        {accountLabel ? (
+          <Link href="/account" title={accountLabel} aria-label={`Профиль: ${accountLabel}`} aria-current={active === "profile" ? "page" : undefined}
+            className={`grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-accent-strong text-sm font-bold text-white ring-2 transition hover:ring-accent ${active === "profile" ? "ring-accent" : "ring-transparent"}`}>
+            {avatarUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={avatarUrl} alt="" className="size-full object-cover" />
+              : accountLabel.slice(0, 1).toUpperCase()}
+          </Link>
+        ) : (
+          <Link href="/login" className="shrink-0 rounded-full bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:brightness-110">Войти</Link>
+        )}
+      </div>
+    </header>
   );
 }
 
 export function SiteHeaderFallback() {
   return (
-    <header aria-hidden className="sticky top-0 z-40 border-b border-white/5 bg-background/70 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+    <header aria-hidden className="sticky top-0 z-40 border-b border-white/5 bg-background/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
         <span className="text-xl font-black tracking-tight sm:text-2xl">Sub<span className="text-accent">Reel</span></span>
         <div className="ml-auto h-10 w-full max-w-md animate-pulse rounded-full bg-surface-2" />
         <div className="size-10 animate-pulse rounded-full bg-surface-2" />
