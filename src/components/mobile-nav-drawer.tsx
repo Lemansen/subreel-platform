@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type Props = { accountLabel: string | null; isCatalogAdmin: boolean };
 
@@ -41,17 +42,15 @@ export function MobileNavDrawer({ accountLabel, isCatalogAdmin }: Props) {
     <>
       <button type="button" aria-label={open ? "Закрыть меню" : "Открыть меню"} aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="grid size-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-xl transition hover:bg-white/[0.08] md:hidden">
+        className="ml-auto grid size-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-[#15151d] text-xl text-white transition hover:bg-[#20202b] md:hidden">
         <span aria-hidden>{open ? "×" : "☰"}</span>
       </button>
-      <div
-        className={`fixed inset-0 z-[80] md:hidden transition-[visibility] duration-300 ${open ? "visible" : "invisible pointer-events-none"}`}
-        aria-hidden={!open}
-      >
+      {open && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[9999] md:hidden" role="presentation">
           <button type="button" aria-label="Закрыть меню" onClick={() => setOpen(false)}
             tabIndex={open ? 0 : -1}
-            className={`absolute inset-0 bg-black/75 backdrop-blur-md transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} />
-          <aside aria-label="Мобильная навигация" className={`absolute inset-y-0 right-0 flex w-[min(88vw,380px)] flex-col border-l border-white/10 bg-[#090a12] p-5 shadow-[-24px_0_80px_rgba(0,0,0,0.55)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${open ? "translate-x-0" : "translate-x-full"}`}>
+            className="absolute inset-0 animate-[mobile-menu-backdrop-in_180ms_ease-out_both] bg-black/80" />
+          <aside aria-label="Мобильная навигация" className="absolute inset-y-0 right-0 flex w-[min(88vw,380px)] flex-col overflow-hidden border-l border-white/10 bg-[#09090f] p-5 text-white shadow-[-24px_0_80px_rgba(0,0,0,0.7)] animate-[mobile-menu-slide-in_260ms_cubic-bezier(0.22,1,0.36,1)_both] [color-scheme:dark]">
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-5">
               <Link href="/" onClick={() => setOpen(false)} className="text-2xl font-black tracking-tight">Sub<span className="text-violet-400">Reel</span></Link>
               <button type="button" onClick={() => setOpen(false)} aria-label="Закрыть меню" className="grid size-10 place-items-center rounded-xl text-2xl text-zinc-400 hover:bg-white/5 hover:text-white">×</button>
@@ -92,7 +91,9 @@ export function MobileNavDrawer({ accountLabel, isCatalogAdmin }: Props) {
             </nav>
             <div className="border-t border-white/[0.08] pt-4 text-xs text-zinc-600">Один SubReel ID для кино, чтения и Minecraft</div>
           </aside>
-      </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }
