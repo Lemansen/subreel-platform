@@ -2,6 +2,8 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { SiteHeader } from "@/components/site-header";
 
+export const instant = false;
+
 export const metadata = {
   title: "Minecraft — SubReel",
   description: "Игровое направление SubReel: лаунчер, сервер и SubCoins.",
