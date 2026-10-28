@@ -11,6 +11,7 @@ const groups = [
     { href: "/", label: "Главная", icon: "⌂" },
     { href: "/cinema", label: "Кино и чтение", icon: "▶" },
     { href: "/catalog", label: "Каталог", icon: "▦" },
+    { href: "/news", label: "Новости лаунчера", icon: "◷" },
     { href: "/account/library", label: "Моя библиотека", icon: "▤" },
   ]},
   { title: "Minecraft", links: [
