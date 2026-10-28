@@ -316,7 +316,7 @@ export default function AccountForm({
               <span className="font-semibold">Minecraft и SubCoins</span>
               <span aria-hidden className="text-text-muted transition group-hover:translate-x-0.5 group-hover:text-accent">›</span>
             </span>
-            <span className="mt-1 block text-sm text-text-secondary">Игровая экономика, баланс и магазин — в одном месте профиля.</span>
+            <span className="mt-1 block text-sm text-text-secondary">Быстрый переход к SubCoins. Баланс и покупки подключим после реализации игровой экономики.</span>
           </Link>
 
           <div className="rounded-2xl border border-border-subtle bg-surface-1 p-4">
