@@ -1,8 +1,9 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { Suspense } from "react";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
-import { SiteHeader } from "@/components/site-header";
+import { SiteHeader, SiteHeaderFallback } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
 
 type Props = { params: Promise<{ version: string }> };
@@ -35,7 +36,7 @@ export default async function LauncherNewsArticle({ params }: Props) {
   const release = data as Release;
 
   return <main className="min-h-screen bg-background text-white">
-    <SiteHeader active="news" />
+    <Suspense fallback={<SiteHeaderFallback />}><SiteHeader active="news" /></Suspense>
     <article className="mx-auto max-w-4xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
       <Link href="/news" className="text-sm text-accent hover:underline">← Все новости</Link>
       <header className="relative mt-6 min-h-72 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-violet-950 via-surface-1 to-sky-950 p-7 sm:p-10">
