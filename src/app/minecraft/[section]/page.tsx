@@ -40,15 +40,15 @@ export default async function MinecraftSectionPage({ params }: { params: Promise
   if (!page) notFound();
 
   return (
-    <main className="min-h-screen bg-[#080d0e] text-white">
+    <main className="min-h-screen bg-[#09090d] text-white">
       <SiteHeader active="minecraft" />eader>
       <section className="mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
-        <div className="rounded-[2rem] border border-emerald-300/15 bg-gradient-to-br from-emerald-950/60 via-[#101c1b] to-[#080d0e] p-7 sm:p-12">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">{page.eyebrow}</p>
+        <div className="rounded-[2rem] border border-sky-300/15 bg-gradient-to-br from-sky-950/60 via-[#111725] to-[#09090d] p-7 sm:p-12">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-300">{page.eyebrow}</p>
           <h1 className="mt-4 text-4xl font-black tracking-tight sm:text-5xl">{page.title}</h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-300">{page.description}</p>
           <div className="mt-8 inline-flex rounded-full border border-amber-300/20 bg-amber-300/[0.06] px-4 py-2 text-sm font-medium text-amber-200">{page.status}</div>
-          <div className="mt-10"><Link href="/minecraft" className="inline-flex min-h-11 items-center rounded-xl bg-emerald-400 px-5 font-bold text-[#07130f] transition hover:bg-emerald-300">Вернуться в Minecraft</Link></div>
+          <div className="mt-10"><Link href="/minecraft" className="inline-flex min-h-11 items-center rounded-xl bg-sky-400 px-5 font-bold text-[#07101d] transition hover:bg-sky-300">Вернуться в Minecraft</Link></div>
         </div>
       </section>
     </main>
