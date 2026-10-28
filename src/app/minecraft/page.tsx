@@ -2,6 +2,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { SiteHeader } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
+import { getLinkedMinecraftProfiles } from "@/lib/minecraft/linked-profiles";
 
 export const instant = false;
 
@@ -20,15 +21,10 @@ export default async function MinecraftPage() {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  let linkedProfiles: { minecraft_username: string; minecraft_uuid: string }[] = [];
-  if (user) {
-    const { data, error } = await supabase
-      .from("launcher_game_profiles")
-      .select("minecraft_username, minecraft_uuid")
-      .eq("user_id", user.id)
-      .order("minecraft_username", { ascending: true });
-    linkedProfiles = error ? [] : (data ?? []);
-  }
+  const linkedResult = user
+    ? await getLinkedMinecraftProfiles(supabase, user.id)
+    : { profiles: [], error: null };
+  const linkedProfiles = linkedResult.profiles;
 
   return (
     <main className="min-h-screen bg-[#09090d] text-white">
