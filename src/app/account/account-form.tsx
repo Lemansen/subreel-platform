@@ -17,7 +17,7 @@ export type AccountProfile = {
   suspension_reason: string | null;
 };
 
-export type AccountSummary = {
+export type MinecraftProfile = { minecraft_uuid: string; minecraft_username: string; updated_at: string } | null;\n\nexport type AccountSummary = {
   library: number | null;
   inProgress: number | null;
   completed: number | null;
@@ -275,6 +275,38 @@ export default function AccountForm({
       </section>
 
       {isSuspended && <AppealForm reason={profile?.suspension_reason ?? null} existingStatus={appeal} onSubmitted={() => setAppeal("open")} />}
+
+      <section aria-labelledby="minecraft-account-heading" className="mt-6 overflow-hidden rounded-2xl border border-sky-300/15 bg-gradient-to-br from-sky-950/35 via-surface-1 to-surface-1">
+        <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">Minecraft · SubReel Launcher</p>
+            <h2 id="minecraft-account-heading" className="mt-2 text-xl font-bold">Игровой профиль</h2>
+            {minecraftProfile ? (
+              <>
+                <p className="mt-2 text-sm text-text-secondary">Аккаунт лаунчера подключён к SubReel ID. Игровые данные будут показываться только после подтверждённой привязки.</p>
+                <div className="mt-4 flex items-center gap-3 rounded-xl border border-sky-300/15 bg-black/20 p-3">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-sky-400/10 text-xl">⛏</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold">{minecraftProfile.minecraft_username}</span>
+                    <span className="mt-0.5 block truncate text-xs text-text-muted">UUID: {minecraftProfile.minecraft_uuid}</span>
+                  </span>
+                  <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">Подключён</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">Пока профиль Minecraft не подключён, сайт не показывает игровой ник, UUID, статистику, достижения и баланс SubCoins. Подключи аккаунт в SubReel Launcher, используя тот же SubReel ID.</p>
+                <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-text-secondary">
+                  <span className="size-2 rounded-full bg-zinc-500" /> Minecraft не подключён
+                </div>
+              </>
+            )}
+          </div>
+          <Link href="/minecraft/launcher" className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-sky-400 px-4 text-sm font-bold text-slate-950 transition hover:bg-sky-300">
+            {minecraftProfile ? "О лаунчере" : "Как подключить"}
+          </Link>
+        </div>
+      </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[288px_minmax(0,1fr)]">
         <aside aria-label="Разделы аккаунта" className="min-w-0 lg:sticky lg:top-24 lg:self-start">\n          <h2 className="mb-3 px-1 text-xs font-bold uppercase tracking-[0.16em] text-text-muted">Разделы профиля</h2>\n          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
