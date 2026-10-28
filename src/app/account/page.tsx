@@ -10,7 +10,7 @@ export const metadata = {
 };
 
 type LibraryStats = { library_count: number; in_progress_count: number; completed_count: number };
-type MinecraftProfile = { minecraft_uuid: string; minecraft_username: string; updated_at: string };
+type MinecraftProfile = { minecraft_uuid: string; minecraft_username: string; updated_at: string | null };
 
 
 async function AccountGate() {
@@ -34,7 +34,7 @@ async function AccountGate() {
     supabase.rpc("user_library_stats"),
     friendsOf().eq("status", "accepted").or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`),
     friendsOf().eq("addressee_id", user.id).eq("status", "pending"),
-    supabase.from("launcher_game_profiles").select("minecraft_uuid, minecraft_username, updated_at").eq("user_id", user.id).maybeSingle(),
+    supabase.from("launcher_game_profiles").select("minecraft_uuid, minecraft_username, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }),
   ]);
 
   const profile = (profileRes.data ?? null) as AccountProfile | null;
@@ -66,7 +66,7 @@ async function AccountGate() {
     <AccountForm
       userId={user.id}
       email={user.email ?? ""}
-      minecraftProfile={(minecraftRes.data ?? null) as MinecraftProfile | null}
+      minecraftProfiles={(minecraftRes.error ? [] : (minecraftRes.data ?? [])) as MinecraftProfile[]}
       profile={profile}
       appealStatus={appealStatus}
       summary={summary}
