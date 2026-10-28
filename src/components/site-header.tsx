@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 
-type Active = "catalog" | "home" | "cinema" | "library" | "profile" | "minecraft";
+type Active = "catalog" | "home" | "cinema" | "library" | "profile" | "minecraft" | "news";
 
 export async function SiteHeader({ active }: { active?: Active }) {
   let accountLabel: string | null = null;
@@ -26,6 +26,7 @@ export async function SiteHeader({ active }: { active?: Active }) {
     { href: "/cinema", label: "Кино и чтение", key: "cinema" },
     { href: "/catalog", label: "Каталог", key: "catalog" },
     { href: "/minecraft", label: "Minecraft", key: "minecraft" },
+    { href: "/news", label: "Новости", key: "news" },
   ];
 
   return (
