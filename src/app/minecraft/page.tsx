@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { SiteHeader } from "@/components/site-header";
+import { createClient } from "@/lib/supabase/server";
 
 export const instant = false;
 
@@ -17,6 +18,18 @@ const sections = [
 export default async function MinecraftPage() {
   await connection();
 
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  let linkedProfile: { minecraft_username: string; minecraft_uuid: string } | null = null;
+  if (user) {
+    const { data } = await supabase
+      .from("launcher_game_profiles")
+      .select("minecraft_username, minecraft_uuid")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    linkedProfile = data;
+  }
+
   return (
     <main className="min-h-screen bg-[#09090d] text-white">
       <SiteHeader active="minecraft" />
@@ -32,6 +45,26 @@ export default async function MinecraftPage() {
             </div>
           </div>
         </div>
+        <section aria-label="Статус игрового профиля" className="mt-6 rounded-2xl border border-white/10 bg-white/[0.025] p-5 sm:flex sm:items-center sm:justify-between sm:gap-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">Твой игровой профиль</p>
+            {linkedProfile ? (
+              <>
+                <h2 className="mt-2 text-xl font-bold text-white">{linkedProfile.minecraft_username}</h2>
+                <p className="mt-1 break-all text-sm text-zinc-400">Minecraft UUID: {linkedProfile.minecraft_uuid}</p>
+                <p className="mt-2 text-sm font-medium text-emerald-300">Профиль подключён к SubReel ID</p>
+              </>
+            ) : (
+              <>
+                <h2 className="mt-2 text-lg font-bold text-white">Minecraft ещё не подключён</h2>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-400">Войди в лаунчере под своим SubReel ID и привяжи подтверждённый Microsoft-профиль Minecraft Java. После этого игровой профиль появится здесь.</p>
+              </>
+            )}
+          </div>
+          <Link href={user ? "/account" : "/login?next=%2Faccount"} className="mt-4 inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-sky-300/25 px-4 font-semibold text-sky-200 transition hover:bg-sky-300/10 sm:mt-0">
+            {linkedProfile ? "Управлять аккаунтом" : user ? "Открыть аккаунт" : "Войти в SubReel"}
+          </Link>
+        </section>
         <div className="mt-12 flex items-end justify-between gap-4">
           <div><p className="text-sm font-semibold text-sky-300">НАПРАВЛЕНИЯ</p><h2 className="mt-2 text-2xl font-bold sm:text-3xl">Всё для игры</h2></div>
           <span className="hidden text-sm text-zinc-500 sm:block">Один аккаунт — общая экосистема</span>
