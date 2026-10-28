@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+// This route reads request-time route params under Next.js Cache Components.
+export const instant = false;
+
 const pages = {
   launcher: {
     eyebrow: "SUBREEL LAUNCHER",
