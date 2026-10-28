@@ -13,7 +13,7 @@ export default async function Home() {
     <main className="relative isolate min-h-screen overflow-hidden bg-[#080910] text-white">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute -left-40 top-10 h-[28rem] w-[28rem] rounded-full bg-violet-700/20 blur-[120px]" />
-        <div className="absolute -right-40 top-1/3 h-[30rem] w-[30rem] rounded-full bg-emerald-500/10 blur-[130px]" />
+        <div className="absolute -right-40 top-1/3 h-[30rem] w-[30rem] rounded-full bg-sky-500/10 blur-[130px]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(92,63,170,0.12),transparent_55%)]" />
       </div>
       <SiteHeader active="home" />
@@ -40,20 +40,20 @@ export default async function Home() {
               </div>
             </div>
           </Link>
-          <Link href="/minecraft" className="group relative isolate min-h-[410px] overflow-hidden rounded-[2rem] border border-emerald-300/15 bg-[#101c1b] p-6 transition duration-300 hover:-translate-y-1 hover:border-emerald-300/40 hover:shadow-[0_24px_90px_-35px_rgba(16,185,129,0.32)] sm:min-h-[470px] sm:p-9">
+          <Link href="/minecraft" className="group relative isolate min-h-[410px] overflow-hidden rounded-[2rem] border border-sky-300/15 bg-[#111725] p-6 transition duration-300 hover:-translate-y-1 hover:border-sky-300/40 hover:shadow-[0_24px_90px_-35px_rgba(16,185,129,0.32)] sm:min-h-[470px] sm:p-9">
             <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden">
-              <div className="absolute -right-12 -top-8 h-72 w-72 rounded-full bg-emerald-500/20 blur-[80px] transition duration-500 group-hover:bg-emerald-400/30" />
+              <div className="absolute -right-12 -top-8 h-72 w-72 rounded-full bg-sky-500/20 blur-[80px] transition duration-500 group-hover:bg-sky-400/30" />
               <div className="absolute -bottom-24 left-1/4 h-80 w-80 rounded-full bg-cyan-600/15 blur-[85px]" />
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/30 via-[#101c1b]/35 to-[#080e12]/90" />
+              <div className="absolute inset-0 bg-gradient-to-br from-sky-950/30 via-[#111725]/35 to-[#080e12]/90" />
               <div className="absolute right-7 top-8 rotate-6 text-[7rem] opacity-[0.09] transition duration-500 group-hover:-rotate-3 group-hover:scale-110 sm:right-12 sm:top-10 sm:text-[10rem]">▦</div>
-              <div className="absolute bottom-0 right-0 h-32 w-32 border-l border-t border-emerald-100/10 bg-emerald-200/[0.025]" />
+              <div className="absolute bottom-0 right-0 h-32 w-32 border-l border-t border-sky-100/10 bg-sky-200/[0.025]" />
             </div>
             <div className="flex h-full min-h-[358px] flex-col sm:min-h-[392px]">
-              <div className="flex items-center gap-3"><span className="grid size-12 place-items-center rounded-2xl border border-emerald-200/15 bg-emerald-300/10 text-2xl">▦</span><span className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-200">Играй и создавай</span></div>
+              <div className="flex items-center gap-3"><span className="grid size-12 place-items-center rounded-2xl border border-sky-200/15 bg-sky-300/10 text-2xl">▦</span><span className="text-xs font-bold uppercase tracking-[0.2em] text-sky-200">Играй и создавай</span></div>
               <div className="mt-auto max-w-lg pt-16">
                 <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Minecraft</h2>
                 <p className="mt-3 max-w-md text-sm leading-6 text-zinc-300 sm:text-base sm:leading-7">Наш сервер и лаунчер, игровые новости, задания, достижения и SubCoins — единая игровая экосистема SubReel.</p>
-                <div className="mt-7 inline-flex min-h-12 items-center gap-3 rounded-xl bg-emerald-500 px-5 text-sm font-bold text-[#07130f] shadow-lg shadow-emerald-950/30 transition group-hover:bg-emerald-400">В мир Minecraft <span className="transition group-hover:translate-x-1">→</span></div>
+                <div className="mt-7 inline-flex min-h-12 items-center gap-3 rounded-xl bg-sky-500 px-5 text-sm font-bold text-[#07101d] shadow-lg shadow-sky-950/30 transition group-hover:bg-sky-400">В мир Minecraft <span className="transition group-hover:translate-x-1">→</span></div>
               </div>
             </div>
           </Link>
