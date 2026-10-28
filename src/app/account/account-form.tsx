@@ -96,6 +96,7 @@ export default function AccountForm({
   userId,
   email,
   minecraftProfiles,
+  minecraftProfilesLoadFailed,
   profile,
   appealStatus,
   summary,
@@ -104,6 +105,7 @@ export default function AccountForm({
   userId: string;
   email: string;
   minecraftProfiles: MinecraftProfile[];
+  minecraftProfilesLoadFailed: boolean;
   profile: AccountProfile | null;
   appealStatus: string | null;
   summary: AccountSummary;
@@ -285,7 +287,9 @@ export default function AccountForm({
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">Minecraft · SubReel Launcher</p>
             <h2 id="minecraft-account-heading" className="mt-2 text-xl font-bold">Игровой профиль</h2>
-            {minecraftProfiles.length > 0 ? (
+            {minecraftProfilesLoadFailed ? (
+              <p role="status" className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">Не удалось проверить привязанные Minecraft-профили. Обнови страницу позже; сейчас статус подключения неизвестен.</p>
+            ) : minecraftProfiles.length > 0 ? (
               <>
                 <p className="mt-2 text-sm text-text-secondary">К SubReel ID подключено профилей: {minecraftProfiles.length}. Каждый аккаунт хранится отдельно.</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
