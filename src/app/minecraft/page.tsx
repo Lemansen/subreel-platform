@@ -41,7 +41,7 @@ export default function MinecraftPage() {
             </Link>
           ))}
         </div>
-        <p className="mt-8 text-sm leading-6 text-zinc-500">Профиль и настройки доступны из общей навигации. Баланс SubCoins и магазин будут собраны в профиле, чтобы не перегружать главные страницы.</p>
+        <p className="mt-8 text-sm leading-6 text-zinc-500">Магазин убран с главной страницы. Доступ к SubCoins будет через профиль; баланс и покупки пока находятся в разработке.</p>
       </section>
     </main>
   );
