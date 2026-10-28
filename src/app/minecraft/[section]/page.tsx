@@ -41,7 +41,7 @@ export default async function MinecraftSectionPage({ params }: { params: Promise
 
   return (
     <main className="min-h-screen bg-[#09090d] text-white">
-      <SiteHeader active="minecraft" />eader>
+      <SiteHeader active="minecraft" />
       <section className="mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
         <div className="rounded-[2rem] border border-sky-300/15 bg-gradient-to-br from-sky-950/60 via-[#111725] to-[#09090d] p-7 sm:p-12">
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-300">{page.eyebrow}</p>
