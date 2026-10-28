@@ -44,11 +44,14 @@ export function MobileNavDrawer({ accountLabel, isCatalogAdmin }: Props) {
         className="grid size-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-xl transition hover:bg-white/[0.08] md:hidden">
         <span aria-hidden>{open ? "×" : "☰"}</span>
       </button>
-      {open && (
-        <div className="fixed inset-0 z-[80] md:hidden">
+      <div
+        className={`fixed inset-0 z-[80] md:hidden transition-[visibility] duration-300 ${open ? "visible" : "invisible pointer-events-none"}`}
+        aria-hidden={!open}
+      >
           <button type="button" aria-label="Закрыть меню" onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <aside aria-label="Мобильная навигация" className="absolute inset-y-0 left-0 flex w-[min(88vw,360px)] flex-col border-r border-white/10 bg-[#0c0c14] p-5 shadow-2xl">
+            tabIndex={open ? 0 : -1}
+            className={`absolute inset-0 bg-black/75 backdrop-blur-md transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} />
+          <aside aria-label="Мобильная навигация" className={`absolute inset-y-0 right-0 flex w-[min(88vw,380px)] flex-col border-l border-white/10 bg-[#090a12] p-5 shadow-[-24px_0_80px_rgba(0,0,0,0.55)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${open ? "translate-x-0" : "translate-x-full"}`}>
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-5">
               <Link href="/" onClick={() => setOpen(false)} className="text-2xl font-black tracking-tight">Sub<span className="text-violet-400">Reel</span></Link>
               <button type="button" onClick={() => setOpen(false)} aria-label="Закрыть меню" className="grid size-10 place-items-center rounded-xl text-2xl text-zinc-400 hover:bg-white/5 hover:text-white">×</button>
@@ -89,8 +92,7 @@ export function MobileNavDrawer({ accountLabel, isCatalogAdmin }: Props) {
             </nav>
             <div className="border-t border-white/[0.08] pt-4 text-xs text-zinc-600">Один SubReel ID для кино, чтения и Minecraft</div>
           </aside>
-        </div>
-      )}
+      </div>
     </>
   );
 }
