@@ -29,9 +29,10 @@ alter table public.subcoin_transactions enable row level security;
 -- No direct browser access. All reads and writes go through guarded server code.
 revoke all on public.subcoin_wallets from anon, authenticated;
 revoke all on public.subcoin_transactions from anon, authenticated;
-grant select, insert, update on public.subcoin_wallets to service_role;
-grant select, insert on public.subcoin_transactions to service_role;
-revoke update, delete, truncate on public.subcoin_transactions from anon, authenticated, service_role;
+grant select on public.subcoin_wallets to service_role;
+grant select on public.subcoin_transactions to service_role;
+revoke insert, update, delete, truncate on public.subcoin_wallets from anon, authenticated, service_role;
+revoke insert, update, delete, truncate on public.subcoin_transactions from anon, authenticated, service_role;
 
 create or replace function public.admin_adjust_subcoins(
   p_user_id uuid,
