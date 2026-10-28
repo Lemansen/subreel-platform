@@ -38,6 +38,7 @@ export default async function MinecraftPage() {
             <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-300 sm:text-lg">Лаунчер, сервер и будущая игровая экосистема с заданиями, достижениями и SubCoins. Развиваем всё в одном месте и с единым SubReel ID.</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/minecraft/launcher" className="inline-flex min-h-12 items-center rounded-xl bg-sky-400 px-5 font-bold text-[#07101d] transition hover:bg-sky-300">О лаунчере <span className="ml-2">→</span></Link>
+              <Link href="/minecraft/events" className="inline-flex min-h-12 items-center rounded-xl border border-white/15 bg-black/20 px-5 font-semibold text-white transition hover:border-sky-300/30 hover:bg-white/5">Новости и события <span className="ml-2">→</span></Link>
             </div>
           </div>
         </div>
