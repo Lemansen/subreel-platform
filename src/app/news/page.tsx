@@ -1,11 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { Suspense } from "react";
-import { connection } from "next/server";
 import { SiteHeader, SiteHeaderFallback } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Новости лаунчера — SubReel" };
+export const instant = false;
 
 type Release = {
   id: string;
@@ -25,7 +25,6 @@ const isNew = (value: string) => Date.now() - new Date(value).getTime() < 7 * 24
 const tagLabel = (tag: Release["news_tag"]) => ({ launcher: "Лаунчер", server: "Сервер", event: "Событие" })[tag] ?? "Лаунчер";
 
 export default async function LauncherNewsPage() {
-  await connection();
   const supabase = await createClient();
   const { data, error } = await supabase.from("launcher_releases")
     .select("id,version,channel,news_tag,cover_url,title,summary,change_notes,github_release_url,published_at")
