@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
+export const instant = false;
+
 export const metadata = {
   title: "SubReel — выбери свой мир",
   description: "Кино и чтение или Minecraft — выбери своё направление в SubReel.",
