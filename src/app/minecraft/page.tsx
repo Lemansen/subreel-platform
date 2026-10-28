@@ -39,7 +39,7 @@ export default function MinecraftPage() {
           <span className="hidden text-sm text-zinc-500 sm:block">Один аккаунт — общая экосистема</span>
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {sections.map((section, index) => (
+          {sections.map((section) => (
             <Link key={section.href} href={section.href} className="group rounded-2xl border border-white/10 bg-white/[0.025] p-6 transition hover:-translate-y-1 hover:border-emerald-300/30 hover:bg-white/[0.045]">
               <span className="inline-flex rounded-full border border-emerald-300/15 bg-emerald-300/[0.07] px-3 py-1 text-xs font-semibold text-emerald-200">{section.label}</span>
               <h3 className="mt-5 text-xl font-bold">{section.title}</h3>
