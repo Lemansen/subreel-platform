@@ -31,7 +31,6 @@ export async function SiteHeader({ active }: { active?: Active }) {
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
-        <MobileNavDrawer accountLabel={accountLabel} isCatalogAdmin={isCatalogAdmin} />
         <Link href="/" aria-label="SubReel — главная" className="shrink-0 text-xl font-black tracking-tight sm:text-2xl">
           Sub<span className="text-accent">Reel</span>
         </Link>
@@ -64,6 +63,7 @@ export async function SiteHeader({ active }: { active?: Active }) {
         ) : (
           <Link href="/login" className="shrink-0 rounded-full bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:brightness-110">Войти</Link>
         )}
+        <MobileNavDrawer accountLabel={accountLabel} isCatalogAdmin={isCatalogAdmin} />
       </div>
     </header>
   );
