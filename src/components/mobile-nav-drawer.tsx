@@ -21,7 +21,8 @@ const groups = [
   { title: "Аккаунт", links: [
     { href: "/account", label: "Профиль и настройки", icon: "◉" },
     { href: "/friends", label: "Друзья", icon: "♧" },
-    { href: "/minecraft/shop", label: "SubCoins и магазин", icon: "✦" },
+    { href: "/minecraft/subcoins", label: "Баланс SubCoins", icon: "◈" },
+    { href: "/minecraft/shop", label: "Магазин", icon: "✦" },
   ]},
 ];
 
