@@ -19,18 +19,24 @@ function isUuid(value: string) {
   return /^[0-9a-f]{32}$/i.test(normalizeUuid(value));
 }
 
-async function getAuthenticatedUser() {
+async function getAuthenticatedUser(request: Request) {
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return { user: null, supabase };
-  return { user: data.user, supabase };
+  const authorization = request.headers.get("authorization");
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const { data, error } = bearer
+    ? await supabase.auth.getUser(bearer)
+    : await supabase.auth.getUser();
+  return error || !data.user ? null : data.user;
 }
 
-export async function GET() {
-  const { user, supabase } = await getAuthenticatedUser();
+export async function GET(request: Request) {
+  const user = await getAuthenticatedUser(request);
   if (!user) return json({ error: "UNAUTHENTICATED" }, 401);
 
-  const { data, error } = await supabase
+  const admin = createSupabaseAdminClient();
+  if (!admin) return json({ error: "SERVER_CONFIGURATION_ERROR" }, 500);
+
+  const { data, error } = await admin
     .from("launcher_game_profiles")
     .select("minecraft_uuid,minecraft_username,updated_at")
     .eq("user_id", user.id)
@@ -51,7 +57,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { user } = await getAuthenticatedUser();
+  const user = await getAuthenticatedUser(request);
   if (!user) return json({ error: "UNAUTHENTICATED" }, 401);
 
   let body: unknown;
@@ -104,9 +110,7 @@ export async function POST(request: Request) {
   }
 
   const admin = createSupabaseAdminClient();
-  if (!admin) {
-    return json({ error: "SERVER_CONFIGURATION_ERROR" }, 500);
-  }
+  if (!admin) return json({ error: "SERVER_CONFIGURATION_ERROR" }, 500);
 
   const minecraftUuid = normalizeUuid(verifiedProfile.id);
   const { error } = await admin.from("launcher_game_profiles").insert({
