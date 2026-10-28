@@ -332,6 +332,7 @@ export default function AccountForm({
             </button>
             {signOutError && <p role="alert" className="mt-2 text-sm text-danger">{signOutError}</p>}
           </div>
+          </div>
         </aside>
 
         <form onSubmit={handleSave} noValidate className="min-w-0 rounded-2xl border border-border-subtle bg-surface-1 p-5 sm:p-6">
