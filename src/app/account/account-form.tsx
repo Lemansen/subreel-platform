@@ -17,7 +17,9 @@ export type AccountProfile = {
   suspension_reason: string | null;
 };
 
-export type MinecraftProfile = { minecraft_uuid: string; minecraft_username: string; updated_at: string } | null;\n\nexport type AccountSummary = {
+export type MinecraftProfile = { minecraft_uuid: string; minecraft_username: string; updated_at: string } | null;
+
+export type AccountSummary = {
   library: number | null;
   inProgress: number | null;
   completed: number | null;
@@ -93,6 +95,7 @@ function Stat({ label, value }: { label: string; value: number | null }) {
 export default function AccountForm({
   userId,
   email,
+  minecraftProfile,
   profile,
   appealStatus,
   summary,
@@ -100,6 +103,7 @@ export default function AccountForm({
 }: {
   userId: string;
   email: string;
+  minecraftProfile: MinecraftProfile;
   profile: AccountProfile | null;
   appealStatus: string | null;
   summary: AccountSummary;
