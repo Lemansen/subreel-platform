@@ -277,7 +277,7 @@ export default function AccountForm({
       {isSuspended && <AppealForm reason={profile?.suspension_reason ?? null} existingStatus={appeal} onSubmitted={() => setAppeal("open")} />}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[288px_minmax(0,1fr)]">
-        <aside aria-label="Разделы аккаунта" className="space-y-3 lg:sticky lg:top-24 lg:self-start">
+        <aside aria-label="Разделы аккаунта" className="min-w-0 lg:sticky lg:top-24 lg:self-start">\n          <h2 className="mb-3 px-1 text-xs font-bold uppercase tracking-[0.16em] text-text-muted">Разделы профиля</h2>\n          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
           <Link href="/account/library" className="group block rounded-2xl border border-border-subtle bg-surface-1 p-4 transition hover:border-accent/40 hover:bg-surface-2">
             <span className="flex items-center justify-between gap-3">
               <span className="font-semibold">Моя библиотека</span>
