@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata = {
@@ -11,7 +12,9 @@ const sections = [
   { href: "/minecraft/server", title: "Игровой сервер", description: "Информация о сервере, подключении и планируемых возможностях.", label: "Сервер" },
 ];
 
-export default function MinecraftPage() {
+export default async function MinecraftPage() {
+  await connection();
+
   return (
     <main className="min-h-screen bg-[#09090d] text-white">
       <SiteHeader active="minecraft" />
