@@ -46,15 +46,20 @@ export async function isMinecraftProfileLinked(
   supabase: ServerSupabaseClient,
   userId: string,
   minecraftUuid: string,
-): Promise<boolean> {
+): Promise<{ linked: boolean; error: Error | null }> {
   const normalizedUuid = minecraftUuid.replace(/-/g, "").trim().toLowerCase();
-  if (!normalizedUuid) return false;
+  if (!normalizedUuid) {
+    return { linked: false, error: new Error("Minecraft UUID is empty.") };
+  }
 
   const { profiles, error } = await getLinkedMinecraftProfiles(supabase, userId);
-  if (error) return false;
+  if (error) return { linked: false, error };
 
-  return profiles.some(
-    (profile) =>
-      profile.minecraft_uuid.replace(/-/g, "").trim().toLowerCase() === normalizedUuid,
-  );
+  return {
+    linked: profiles.some(
+      (profile) =>
+        profile.minecraft_uuid.replace(/-/g, "").trim().toLowerCase() === normalizedUuid,
+    ),
+    error: null,
+  };
 }
