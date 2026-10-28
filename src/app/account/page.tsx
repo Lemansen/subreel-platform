@@ -67,6 +67,7 @@ async function AccountGate() {
       userId={user.id}
       email={user.email ?? ""}
       minecraftProfiles={minecraftResult.profiles}
+      minecraftProfilesLoadFailed={Boolean(minecraftResult.error)}
       profile={profile}
       appealStatus={appealStatus}
       summary={summary}
