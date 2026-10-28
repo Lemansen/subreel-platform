@@ -4,6 +4,8 @@ type LauncherReleaseRow = {
   id: string;
   version: string;
   channel: "stable" | "beta";
+  news_tag: "launcher" | "server" | "event";
+  cover_url: string | null;
   title: string;
   summary: string;
   change_notes: string[];
@@ -28,7 +30,7 @@ export async function GET() {
       auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     });
     const { data, error } = await supabase.from("launcher_releases")
-      .select("id,version,channel,title,summary,change_notes,github_release_url,published_at")
+      .select("id,version,channel,news_tag,cover_url,title,summary,change_notes,github_release_url,published_at")
       .eq("status", "published")
       .order("published_at", { ascending: false })
       .limit(30);

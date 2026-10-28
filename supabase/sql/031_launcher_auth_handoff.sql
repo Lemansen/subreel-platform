@@ -20,8 +20,12 @@ create table if not exists public.launcher_auth_requests (
 create index if not exists launcher_auth_requests_expiry_idx
     on public.launcher_auth_requests (expires_at);
 
+create index if not exists launcher_auth_requests_user_id_idx
+    on public.launcher_auth_requests (user_id)
+    where user_id is not null;
+
 alter table public.launcher_auth_requests enable row level security;
-revoke all on public.launcher_auth_requests from anon, authenticated;
+revoke all on public.launcher_auth_requests from public, anon, authenticated;
 grant all on public.launcher_auth_requests to service_role;
 
 create table if not exists public.launcher_auth_rate_limits (
@@ -31,7 +35,7 @@ create table if not exists public.launcher_auth_rate_limits (
 );
 
 alter table public.launcher_auth_rate_limits enable row level security;
-revoke all on public.launcher_auth_rate_limits from anon, authenticated;
+revoke all on public.launcher_auth_rate_limits from public, anon, authenticated;
 grant all on public.launcher_auth_rate_limits to service_role;
 
 create or replace function public.create_launcher_auth_request(

@@ -4,7 +4,7 @@ The launcher authorization endpoints use a short-lived request, PKCE, a state va
 
 ## Deployment setup
 
-1. Apply `supabase/sql/031_launcher_auth_handoff.sql` to the Supabase project.
+1. Migration `launcher_auth_handoff_031` was applied to the production Supabase project on 2026-10-27 (`20261027142033`). It creates/ensures the short-lived request and rate-limit tables and service-role-only RPC functions. The launcher request tables are intentionally inaccessible to `anon` and `authenticated` and have no RLS policies; RLS is enabled and there are no grants for those roles.
 2. Add `LAUNCHER_AUTH_ENCRYPTION_KEY` to the platform server environment. Generate a fresh 32-byte key with PowerShell:
 
    ```powershell

@@ -17,22 +17,33 @@ create index if not exists launcher_releases_public_channel_idx
     on public.launcher_releases (channel, published_at desc)
     where status = 'published';
 
+create index if not exists launcher_releases_created_by_idx
+    on public.launcher_releases (created_by)
+    where created_by is not null;
+
 alter table public.launcher_releases enable row level security;
-revoke all on public.launcher_releases from anon, authenticated;
+revoke all on public.launcher_releases from public, anon, authenticated;
 grant select on public.launcher_releases to anon, authenticated;
 grant insert, update, delete on public.launcher_releases to authenticated;
 
-create policy launcher_releases_public_read on public.launcher_releases
-    for select to anon, authenticated using (status = 'published');
-create policy launcher_releases_admin_read on public.launcher_releases
-    for select to authenticated using ((select auth.jwt() -> 'app_metadata' ->> 'role') = 'catalog_admin');
+drop policy if exists launcher_releases_read on public.launcher_releases;
+drop policy if exists launcher_releases_public_read on public.launcher_releases;
+drop policy if exists launcher_releases_admin_read on public.launcher_releases;
+create policy launcher_releases_read on public.launcher_releases
+    for select to anon, authenticated using (
+        status = 'published'
+        or ((select auth.jwt()) -> 'app_metadata' ->> 'role') = 'catalog_admin'
+    );
+drop policy if exists launcher_releases_admin_insert on public.launcher_releases;
 create policy launcher_releases_admin_insert on public.launcher_releases
     for insert to authenticated with check (
-        (select auth.jwt() -> 'app_metadata' ->> 'role') = 'catalog_admin'
+        ((select auth.jwt()) -> 'app_metadata' ->> 'role') = 'catalog_admin'
         and created_by = (select auth.uid())
     );
+drop policy if exists launcher_releases_admin_update on public.launcher_releases;
 create policy launcher_releases_admin_update on public.launcher_releases
-    for update to authenticated using ((select auth.jwt() -> 'app_metadata' ->> 'role') = 'catalog_admin')
-    with check ((select auth.jwt() -> 'app_metadata' ->> 'role') = 'catalog_admin');
+    for update to authenticated using (((select auth.jwt()) -> 'app_metadata' ->> 'role') = 'catalog_admin')
+    with check (((select auth.jwt()) -> 'app_metadata' ->> 'role') = 'catalog_admin');
+drop policy if exists launcher_releases_admin_delete on public.launcher_releases;
 create policy launcher_releases_admin_delete on public.launcher_releases
-    for delete to authenticated using ((select auth.jwt() -> 'app_metadata' ->> 'role') = 'catalog_admin');
+    for delete to authenticated using (((select auth.jwt()) -> 'app_metadata' ->> 'role') = 'catalog_admin');

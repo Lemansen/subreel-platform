@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
-type Active = "catalog" | "home" | "library" | "profile";
+type Active = "catalog" | "home" | "library" | "news" | "profile";
 
 export async function SiteHeader({ active }: { active?: Active }) {
   let accountLabel: string | null = null;
@@ -23,6 +23,7 @@ export async function SiteHeader({ active }: { active?: Active }) {
   const links: { href: string; label: string; key: Active; icon: string }[] = [
     { href: "/", label: "Главная", key: "home", icon: "⌂" },
     { href: "/catalog", label: "Каталог", key: "catalog", icon: "▦" },
+    { href: "/news", label: "Новости", key: "news", icon: "◷" },
     { href: accountLabel ? "/account/library" : "/login", label: "Библиотека", key: "library", icon: "❏" },
   ];
 
@@ -68,7 +69,7 @@ export async function SiteHeader({ active }: { active?: Active }) {
       {/* Нижнее меню на телефоне, как в приложениях */}
       <nav aria-label="Мобильная навигация"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-white/5 bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
-        <div className="grid grid-cols-4">
+        <div className="grid grid-cols-5">
           {[...links, { href: accountLabel ? "/account" : "/login", label: "Профиль", key: "profile" as const, icon: "◉" }].map((l) => (
             <Link key={l.key} href={l.href} aria-current={active === l.key ? "page" : undefined}
               className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] ${active === l.key ? "text-accent" : "text-text-muted"}`}>

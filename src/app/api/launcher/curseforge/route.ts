@@ -29,10 +29,19 @@ async function authorize(request: Request): Promise<{ userId: string } | Respons
   const cached = verifiedTokens.get(fingerprint);
   let userId = cached && cached.expiresAt > now ? cached.userId : "";
   if (!userId) {
-    const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data.user) return jsonError(401, "Сессия SubReel истекла. Войдите снова.");
-    userId = data.user.id;
+    try {
+      const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data, error } = await supabase.auth.getUser(token);
+      if (error) {
+        const status = (error as { status?: number }).status;
+        if (status && status !== 401) return jsonError(503, "Не удалось проверить сессию SubReel. Повторите попытку позже.");
+        return jsonError(401, "Сессия SubReel истекла. Войдите снова.");
+      }
+      if (!data.user) return jsonError(401, "Сессия SubReel истекла. Войдите снова.");
+      userId = data.user.id;
+    } catch {
+      return jsonError(503, "Не удалось проверить сессию SubReel. Повторите попытку позже.");
+    }
     let tokenExpiresAt = now + 120_000;
     try {
       const payload = token.split(".")[1];
@@ -50,6 +59,22 @@ async function authorize(request: Request): Promise<{ userId: string } | Respons
     for (const [hash, tokenEntry] of verifiedTokens) if (tokenEntry.expiresAt <= now) verifiedTokens.delete(hash);
   }
   return { userId };
+}
+
+async function forwardCurseForgeJson(upstream: Response): Promise<Response> {
+  if (!upstream.ok) {
+    await upstream.body?.cancel().catch(() => undefined);
+    if (upstream.status === 429) return jsonError(503, "CurseForge временно ограничил запросы. Попробуйте позже.");
+    if (upstream.status === 401 || upstream.status === 403)
+      return jsonError(502, "CurseForge API отклонил запрос. Проверьте серверную настройку ключа каталога.");
+    if (upstream.status === 404) return jsonError(404, "CurseForge не нашёл запрошенную запись.");
+    return jsonError(502, "CurseForge временно не смог обработать запрос.");
+  }
+  try {
+    return Response.json(await upstream.json(), { headers: { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+  } catch {
+    return jsonError(502, "CurseForge вернул некорректный ответ.");
+  }
 }
 
 function curseForgeKey(): string | Response {
@@ -93,7 +118,7 @@ export async function GET(request: Request) {
       if (version) params.set("gameVersion", version);
       if (loaderType) params.set("modLoaderType", loaderType);
       const upstream = await curseForgeJson(`/mods/search?${params}`, key);
-      return Response.json(await upstream.json(), { status: upstream.status, headers: { "Cache-Control": "private, no-store" } });
+      return forwardCurseForgeJson(upstream);
     }
 
     if (action === "versions") {
@@ -102,7 +127,7 @@ export async function GET(request: Request) {
       const pageSize = safeInteger(url.searchParams.get("limit"), 1, 50) ?? 50;
       const index = safeInteger(url.searchParams.get("offset"), 0, 10_000 - pageSize) ?? 0;
       const upstream = await curseForgeJson(`/mods/${projectId}/files?pageSize=${pageSize}&index=${index}`, key);
-      return Response.json(await upstream.json(), { status: upstream.status, headers: { "Cache-Control": "private, no-store" } });
+      return forwardCurseForgeJson(upstream);
     }
 
     if (action === "download") {
@@ -110,7 +135,12 @@ export async function GET(request: Request) {
       const fileId = safeInteger(url.searchParams.get("fileId"));
       if (!projectId || !fileId) return jsonError(400, "Некорректный идентификатор файла.");
       const urlResponse = await curseForgeJson(`/mods/${projectId}/files/${fileId}/download-url`, key);
-      if (!urlResponse.ok) return jsonError(urlResponse.status, "CurseForge не предоставил ссылку на этот файл.");
+      if (!urlResponse.ok) {
+        if (urlResponse.status === 401 || urlResponse.status === 403)
+          return jsonError(502, "CurseForge API отклонил запрос. Проверьте серверную настройку ключа каталога.");
+        if (urlResponse.status === 429) return jsonError(503, "CurseForge временно ограничил запросы. Попробуйте позже.");
+        return jsonError(urlResponse.status === 404 ? 404 : 502, "CurseForge не предоставил ссылку на этот файл.");
+      }
       const payload = (await urlResponse.json()) as { data?: unknown };
       if (typeof payload.data !== "string") return jsonError(404, "Файл недоступен для загрузки через CurseForge API.");
       const fileUrl = new URL(payload.data);
@@ -170,7 +200,7 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fileIds: body.fileIds }),
     });
-    return Response.json(await upstream.json(), { status: upstream.status, headers: { "Cache-Control": "private, no-store" } });
+    return forwardCurseForgeJson(upstream);
   } catch {
     return jsonError(502, "Не удалось запросить файлы CurseForge.");
   }
