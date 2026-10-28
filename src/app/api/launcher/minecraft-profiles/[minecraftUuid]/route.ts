@@ -16,11 +16,15 @@ function normalizeUuid(value: string) {
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ minecraftUuid: string }> },
 ) {
   const supabase = await createClient();
-  const { data, error: authError } = await supabase.auth.getUser();
+  const authorization = request.headers.get("authorization");
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const { data, error: authError } = bearer
+    ? await supabase.auth.getUser(bearer)
+    : await supabase.auth.getUser();
   if (authError || !data.user) return json({ error: "UNAUTHENTICATED" }, 401);
 
   const { minecraftUuid: rawUuid } = await context.params;
