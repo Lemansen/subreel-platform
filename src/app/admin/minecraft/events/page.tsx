@@ -6,6 +6,21 @@ import { createPublication, setPublicationStatus, updatePublication } from "./ac
 
 export const instant = false;
 type Props = { searchParams: Promise<{ error?: string; success?: string }> };
+type PublicationFormItem = {
+  kind?: string | null;
+  slug?: string | null;
+  title?: string | null;
+  summary?: string | null;
+  body?: string | null;
+  cover_image_url?: string | null;
+  tags?: string[] | null;
+  cta_label?: string | null;
+  cta_url?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  scheduled_at?: string | null;
+  pinned?: boolean | null;
+};
 const input = "w-full min-w-0 rounded-xl border border-white/10 bg-[#101018] px-3 py-2.5 text-sm text-white outline-none focus:border-violet-400";
 const label = "mb-1.5 block text-sm text-zinc-300";
 const kinds = [
@@ -15,12 +30,12 @@ const kinds = [
   ["incident","Инцидент / важное уведомление"],["guide","Инструкция"],["other","Другое"],
 ] as const;
 const kindName = (kind: string) => kinds.find(([value]) => value === kind)?.[1] ?? kind;
-function dateValue(value: string | null) {
+function dateValue(value: string | null | undefined) {
   if (!value) return "";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "" : new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0,16);
 }
-function Fields({ item }: { item?: any }) {
+function Fields({ item }: { item?: PublicationFormItem }) {
   return <>
     <label><span className={label}>Тип публикации</span><select name="kind" defaultValue={item?.kind ?? "announcement"} className={input}>{kinds.map(([value,title])=><option key={value} value={value}>{title}</option>)}</select></label>
     <label><span className={label}>Короткий адрес (slug, необязательно)</span><input name="slug" defaultValue={item?.slug ?? ""} maxLength={180} placeholder="beta-test-launcher" className={input}/></label>
