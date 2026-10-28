@@ -266,7 +266,7 @@ async function HomeContent() {
 
   return (
     <main className="min-h-screen bg-[#09090d] text-white">
-      <SiteHeader active="home" />
+      <SiteHeader active="cinema" />
 
       {banners.length > 0 && <HeroSlider banners={banners} />}
 
