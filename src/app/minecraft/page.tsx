@@ -14,7 +14,7 @@ const sections = [
 export default function MinecraftPage() {
   return (
     <main className="min-h-screen bg-[#09090d] text-white">
-      <SiteHeader active="minecraft" />eader>
+      <SiteHeader active="minecraft" />
       <section className="mx-auto max-w-7xl px-5 pb-16 pt-12 sm:px-8 sm:pt-20">
         <div className="relative overflow-hidden rounded-[2rem] border border-sky-300/15 bg-gradient-to-br from-sky-950 via-[#10201e] to-[#0b1019] p-7 sm:p-12 lg:p-16">
           <div aria-hidden className="absolute -right-20 -top-24 size-80 rounded-full bg-sky-400/15 blur-[100px]" />
