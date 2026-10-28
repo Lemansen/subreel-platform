@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SiteHeader } from "@/components/site-header";
 
 // This route reads request-time route params under Next.js Cache Components.
 export const instant = false;
@@ -40,10 +41,7 @@ export default async function MinecraftSectionPage({ params }: { params: Promise
 
   return (
     <main className="min-h-screen bg-[#080d0e] text-white">
-      <header className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
-        <Link href="/" className="text-xl font-black tracking-tight">Sub<span className="text-emerald-400">Reel</span></Link>
-        <Link href="/minecraft" className="rounded-full border border-white/10 px-4 py-2 text-sm text-zinc-300 transition hover:bg-white/5">← Minecraft</Link>
-      </header>
+      <SiteHeader active="minecraft" />eader>
       <section className="mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
         <div className="rounded-[2rem] border border-emerald-300/15 bg-gradient-to-br from-emerald-950/60 via-[#101c1b] to-[#080d0e] p-7 sm:p-12">
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">{page.eyebrow}</p>
