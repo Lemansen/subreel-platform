@@ -20,14 +20,14 @@ export default async function MinecraftPage() {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  let linkedProfile: { minecraft_username: string; minecraft_uuid: string } | null = null;
+  let linkedProfiles: { minecraft_username: string; minecraft_uuid: string }[] = [];
   if (user) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("launcher_game_profiles")
       .select("minecraft_username, minecraft_uuid")
       .eq("user_id", user.id)
-      .maybeSingle();
-    linkedProfile = data;
+      .order("minecraft_username", { ascending: true });
+    linkedProfiles = error ? [] : (data ?? []);
   }
 
   return (
@@ -48,11 +48,18 @@ export default async function MinecraftPage() {
         <section aria-label="Статус игрового профиля" className="mt-6 rounded-2xl border border-white/10 bg-white/[0.025] p-5 sm:flex sm:items-center sm:justify-between sm:gap-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">Твой игровой профиль</p>
-            {linkedProfile ? (
+            {linkedProfiles.length > 0 ? (
               <>
-                <h2 className="mt-2 text-xl font-bold text-white">{linkedProfile.minecraft_username}</h2>
-                <p className="mt-1 break-all text-sm text-zinc-400">Minecraft UUID: {linkedProfile.minecraft_uuid}</p>
-                <p className="mt-2 text-sm font-medium text-emerald-300">Профиль подключён к SubReel ID</p>
+                <h2 className="mt-2 text-xl font-bold text-white">Подключено профилей: {linkedProfiles.length}</h2>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {linkedProfiles.map((profile) => (
+                    <div key={profile.minecraft_uuid} className="min-w-0 rounded-xl border border-emerald-300/15 bg-black/20 p-3">
+                      <p className="truncate font-semibold text-white">{profile.minecraft_username}</p>
+                      <p className="mt-1 break-all text-xs text-zinc-400">UUID: {profile.minecraft_uuid}</p>
+                      <p className="mt-2 text-xs font-medium text-emerald-300">Подключён к SubReel ID</p>
+                    </div>
+                  ))}
+                </div>
               </>
             ) : (
               <>
@@ -62,7 +69,7 @@ export default async function MinecraftPage() {
             )}
           </div>
           <Link href={user ? "/account" : "/login?next=%2Faccount"} className="mt-4 inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-sky-300/25 px-4 font-semibold text-sky-200 transition hover:bg-sky-300/10 sm:mt-0">
-            {linkedProfile ? "Управлять аккаунтом" : user ? "Открыть аккаунт" : "Войти в SubReel"}
+            {linkedProfiles.length > 0 ? "Управлять аккаунтом" : user ? "Открыть аккаунт" : "Войти в SubReel"}
           </Link>
         </section>
         <div className="mt-12 flex items-end justify-between gap-4">
