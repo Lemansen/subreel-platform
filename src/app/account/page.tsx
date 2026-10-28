@@ -10,6 +10,8 @@ export const metadata = {
 };
 
 type LibraryStats = { library_count: number; in_progress_count: number; completed_count: number };
+type MinecraftProfile = { minecraft_uuid: string; minecraft_username: string; updated_at: string };
+
 
 async function AccountGate() {
   const supabase = await createClient();
@@ -23,7 +25,7 @@ async function AccountGate() {
   const friendsOf = () =>
     supabase.from("friend_requests").select("id", { count: "exact", head: true });
 
-  const [profileRes, statsRes, friendsRes, incomingRes] = await Promise.all([
+  const [profileRes, statsRes, friendsRes, incomingRes, minecraftRes] = await Promise.all([
     supabase
       .from("profiles")
       .select("username, display_name, avatar_url, bio, is_public, is_suspended, suspension_reason")
