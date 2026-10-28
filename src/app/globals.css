@@ -58,3 +58,19 @@ body {
 .wizard-step-enter { animation: wizard-step-forward 220ms ease-out both; }
 .wizard-step-backward { animation-name: wizard-step-backward; }
 @media (prefers-reduced-motion: reduce) { .wizard-step-enter { animation: none; } }
+
+
+@keyframes mobile-menu-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes mobile-menu-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="mobile-menu-slide-in"],
+  [class*="mobile-menu-backdrop-in"] { animation-duration: 1ms !important; }
+}
