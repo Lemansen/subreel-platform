@@ -311,6 +311,14 @@ export default function AccountForm({
             </span>
           </Link>
 
+          <Link href="/minecraft/shop" className="group block rounded-2xl border border-border-subtle bg-surface-1 p-4 transition hover:border-accent/40 hover:bg-surface-2">
+            <span className="flex items-center justify-between gap-3">
+              <span className="font-semibold">Minecraft и SubCoins</span>
+              <span aria-hidden className="text-text-muted transition group-hover:translate-x-0.5 group-hover:text-accent">›</span>
+            </span>
+            <span className="mt-1 block text-sm text-text-secondary">Игровая экономика, баланс и магазин — в одном месте профиля.</span>
+          </Link>
+
           <div className="rounded-2xl border border-border-subtle bg-surface-1 p-4">
             <p className="text-sm text-text-secondary">Вошёл как</p>
             <p className="mt-0.5 break-all text-sm font-medium">{email || "Почта не указана"}</p>
