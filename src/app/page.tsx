@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/components/site-header";
 
 export const instant = false;
@@ -10,15 +9,6 @@ export const metadata = {
 };
 
 export default async function Home() {
-  let signedIn = false;
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase.auth.getUser();
-    signedIn = Boolean(data.user);
-  } catch {
-    // Главная-развилка должна оставаться доступной даже без авторизации.
-  }
-
   return (
     <main className="relative isolate min-h-screen overflow-hidden bg-[#080910] text-white">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
@@ -26,7 +16,8 @@ export default async function Home() {
         <div className="absolute -right-40 top-1/3 h-[30rem] w-[30rem] rounded-full bg-emerald-500/10 blur-[130px]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(92,63,170,0.12),transparent_55%)]" />
       </div>
-      <SiteHeader active="home" />     <section className="mx-auto flex w-full max-w-7xl flex-col px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16 lg:pt-20">
+      <SiteHeader active="home" />
+      <section className="mx-auto flex w-full max-w-7xl flex-col px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16 lg:pt-20">
         <div className="mx-auto mb-10 max-w-3xl text-center sm:mb-14">
           <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-300/[0.06] px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-violet-200"><span className="size-1.5 rounded-full bg-violet-300" />Твой цифровой мир</p>
           <h1 className="text-4xl font-black tracking-tight sm:text-6xl lg:text-7xl">Один SubReel.<span className="mt-2 block bg-gradient-to-r from-violet-300 via-fuchsia-300 to-sky-300 bg-clip-text text-transparent">Два направления.</span></h1>
