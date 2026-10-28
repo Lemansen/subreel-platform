@@ -312,7 +312,7 @@ export default function AccountForm({
             )}
           </div>
           <Link href="/minecraft/launcher" className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-sky-400 px-4 text-sm font-bold text-slate-950 transition hover:bg-sky-300">
-            {minecraftProfile ? "О лаунчере" : "Как подключить"}
+            {minecraftProfiles.length > 0 ? "О лаунчере" : "Как подключить"}
           </Link>
         </div>
       </section>
