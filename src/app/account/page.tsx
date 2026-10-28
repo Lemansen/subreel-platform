@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { SiteHeader, SiteHeaderFallback } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
 import AccountForm, { type AccountProfile, type AccountSummary } from "./account-form";
+import { getLinkedMinecraftProfiles } from "@/lib/minecraft/linked-profiles";
 
 export const metadata = {
   title: "Мой профиль",
@@ -10,7 +11,6 @@ export const metadata = {
 };
 
 type LibraryStats = { library_count: number; in_progress_count: number; completed_count: number };
-type MinecraftProfile = { minecraft_uuid: string; minecraft_username: string; updated_at: string | null };
 
 
 async function AccountGate() {
@@ -25,7 +25,7 @@ async function AccountGate() {
   const friendsOf = () =>
     supabase.from("friend_requests").select("id", { count: "exact", head: true });
 
-  const [profileRes, statsRes, friendsRes, incomingRes, minecraftRes] = await Promise.all([
+  const [profileRes, statsRes, friendsRes, incomingRes, minecraftResult] = await Promise.all([
     supabase
       .from("profiles")
       .select("username, display_name, avatar_url, bio, is_public, is_suspended, suspension_reason")
@@ -34,7 +34,7 @@ async function AccountGate() {
     supabase.rpc("user_library_stats"),
     friendsOf().eq("status", "accepted").or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`),
     friendsOf().eq("addressee_id", user.id).eq("status", "pending"),
-    supabase.from("launcher_game_profiles").select("minecraft_uuid, minecraft_username, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }),
+    getLinkedMinecraftProfiles(supabase, user.id),
   ]);
 
   const profile = (profileRes.data ?? null) as AccountProfile | null;
@@ -66,7 +66,7 @@ async function AccountGate() {
     <AccountForm
       userId={user.id}
       email={user.email ?? ""}
-      minecraftProfiles={(minecraftRes.error ? [] : (minecraftRes.data ?? [])) as MinecraftProfile[]}
+      minecraftProfiles={minecraftResult.profiles}
       profile={profile}
       appealStatus={appealStatus}
       summary={summary}
