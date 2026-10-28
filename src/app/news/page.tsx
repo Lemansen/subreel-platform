@@ -1,10 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
-import { connection } from "next/server";
-import { SiteHeader } from "@/components/site-header";
+import { Suspense } from "react";
+import { SiteHeader, SiteHeaderFallback } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Новости лаунчера — SubReel" };
+export const instant = false;
 
 type Release = {
   id: string;
@@ -24,7 +25,6 @@ const isNew = (value: string) => Date.now() - new Date(value).getTime() < 7 * 24
 const tagLabel = (tag: Release["news_tag"]) => ({ launcher: "Лаунчер", server: "Сервер", event: "Событие" })[tag] ?? "Лаунчер";
 
 export default async function LauncherNewsPage() {
-  await connection();
   const supabase = await createClient();
   const { data, error } = await supabase.from("launcher_releases")
     .select("id,version,channel,news_tag,cover_url,title,summary,change_notes,github_release_url,published_at")
@@ -36,7 +36,7 @@ export default async function LauncherNewsPage() {
   const [featured, ...rest] = releases;
 
   return <main className="min-h-screen bg-background text-white">
-    <SiteHeader active="news" />
+    <Suspense fallback={<SiteHeaderFallback />}><SiteHeader active="news" /></Suspense>
     <div className="mx-auto max-w-7xl px-4 pb-24 pt-10 sm:px-6 lg:px-8">
       <p className="text-xs font-bold uppercase tracking-[0.22em] text-accent">SubReel Launcher</p>
       <h1 className="mt-3 text-4xl font-black sm:text-5xl">Новости и обновления</h1>

@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { SiteHeader, SiteHeaderFallback } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
 import AccountForm, { type AccountProfile, type AccountSummary } from "./account-form";
+import { getLinkedMinecraftProfiles } from "@/lib/minecraft/linked-profiles";
+import { SubCoinsPanel } from "./subcoins-panel";
 
 export const metadata = {
   title: "Мой профиль",
@@ -10,6 +12,7 @@ export const metadata = {
 };
 
 type LibraryStats = { library_count: number; in_progress_count: number; completed_count: number };
+
 
 async function AccountGate() {
   const supabase = await createClient();
@@ -23,7 +26,7 @@ async function AccountGate() {
   const friendsOf = () =>
     supabase.from("friend_requests").select("id", { count: "exact", head: true });
 
-  const [profileRes, statsRes, friendsRes, incomingRes] = await Promise.all([
+  const [profileRes, statsRes, friendsRes, incomingRes, minecraftResult] = await Promise.all([
     supabase
       .from("profiles")
       .select("username, display_name, avatar_url, bio, is_public, is_suspended, suspension_reason")
@@ -32,6 +35,7 @@ async function AccountGate() {
     supabase.rpc("user_library_stats"),
     friendsOf().eq("status", "accepted").or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`),
     friendsOf().eq("addressee_id", user.id).eq("status", "pending"),
+    getLinkedMinecraftProfiles(supabase, user.id),
   ]);
 
   const profile = (profileRes.data ?? null) as AccountProfile | null;
@@ -60,14 +64,19 @@ async function AccountGate() {
   };
 
   return (
-    <AccountForm
-      userId={user.id}
-      email={user.email ?? ""}
-      profile={profile}
-      appealStatus={appealStatus}
-      summary={summary}
-      loadFailed={Boolean(profileRes.error)}
-    />
+    <>
+      <AccountForm
+        userId={user.id}
+        email={user.email ?? ""}
+        minecraftProfiles={minecraftResult.profiles}
+        minecraftProfilesLoadFailed={Boolean(minecraftResult.error)}
+        profile={profile}
+        appealStatus={appealStatus}
+        summary={summary}
+        loadFailed={Boolean(profileRes.error)}
+      />
+      <SubCoinsPanel userId={user.id} />
+    </>
   );
 }
 
