@@ -44,7 +44,12 @@ export default async function MinecraftPage() {
         <section aria-label="Статус игрового профиля" className="mt-6 rounded-2xl border border-white/10 bg-white/[0.025] p-5 sm:flex sm:items-center sm:justify-between sm:gap-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">Твой игровой профиль</p>
-            {linkedProfiles.length > 0 ? (
+            {linkedResult.error ? (
+              <>
+                <h2 className="mt-2 text-lg font-bold text-white">Не удалось проверить привязку</h2>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-400">Обнови страницу позже. Пока данные не загрузились, статус Minecraft-профиля неизвестен.</p>
+              </>
+            ) : linkedProfiles.length > 0 ? (
               <>
                 <h2 className="mt-2 text-xl font-bold text-white">Подключено профилей: {linkedProfiles.length}</h2>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
