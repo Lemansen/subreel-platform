@@ -4,6 +4,7 @@ import { SiteHeader, SiteHeaderFallback } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
 import AccountForm, { type AccountProfile, type AccountSummary } from "./account-form";
 import { getLinkedMinecraftProfiles } from "@/lib/minecraft/linked-profiles";
+import { SubCoinsPanel } from "./subcoins-panel";
 
 export const metadata = {
   title: "Мой профиль",
@@ -63,16 +64,19 @@ async function AccountGate() {
   };
 
   return (
-    <AccountForm
-      userId={user.id}
-      email={user.email ?? ""}
-      minecraftProfiles={minecraftResult.profiles}
-      minecraftProfilesLoadFailed={Boolean(minecraftResult.error)}
-      profile={profile}
-      appealStatus={appealStatus}
-      summary={summary}
-      loadFailed={Boolean(profileRes.error)}
-    />
+    <>
+      <AccountForm
+        userId={user.id}
+        email={user.email ?? ""}
+        minecraftProfiles={minecraftResult.profiles}
+        minecraftProfilesLoadFailed={Boolean(minecraftResult.error)}
+        profile={profile}
+        appealStatus={appealStatus}
+        summary={summary}
+        loadFailed={Boolean(profileRes.error)}
+      />
+      <SubCoinsPanel userId={user.id} />
+    </>
   );
 }
 
