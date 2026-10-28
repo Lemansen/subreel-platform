@@ -56,6 +56,7 @@ export default async function MinecraftSectionPage({ params }: { params: Promise
         .from("launcher_game_profiles")
         .select("user_id")
         .eq("user_id", user.id)
+        .limit(1)
         .maybeSingle();
       minecraftLinked = Boolean(data);
     }
