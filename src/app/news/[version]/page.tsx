@@ -1,10 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { Suspense } from "react";
-import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { SiteHeader, SiteHeaderFallback } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
+
+export const instant = false;
 
 type Props = { params: Promise<{ version: string }> };
 type Release = {
@@ -26,7 +27,6 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function LauncherNewsArticle({ params }: Props) {
-  await connection();
   const { version } = await params;
   const supabase = await createClient();
   const { data } = await supabase.from("launcher_releases")
