@@ -35,8 +35,11 @@ export function ReadingViewer({ titleId, chapters, sources, initialProgress, can
   const selected = options.find((s) => s.id === sourceId) ?? options[0];
 
   useEffect(() => {
-    const saved = localStorage.getItem("reader-width") as Width | null;
-    if (saved && saved in widthClass) setWidth(saved);
+    const frame = window.requestAnimationFrame(() => {
+      const saved = localStorage.getItem("reader-width") as Width | null;
+      if (saved && saved in widthClass) setWidth(saved);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   function open(id: string) {
