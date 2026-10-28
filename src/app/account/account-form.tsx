@@ -17,7 +17,7 @@ export type AccountProfile = {
   suspension_reason: string | null;
 };
 
-export type MinecraftProfile = { minecraft_uuid: string; minecraft_username: string; updated_at: string } | null;
+export type MinecraftProfile = { minecraft_uuid: string; minecraft_username: string; updated_at: string | null };
 
 export type AccountSummary = {
   library: number | null;
@@ -95,7 +95,7 @@ function Stat({ label, value }: { label: string; value: number | null }) {
 export default function AccountForm({
   userId,
   email,
-  minecraftProfile,
+  minecraftProfiles,
   profile,
   appealStatus,
   summary,
@@ -103,7 +103,7 @@ export default function AccountForm({
 }: {
   userId: string;
   email: string;
-  minecraftProfile: MinecraftProfile;
+  minecraftProfiles: MinecraftProfile[];
   profile: AccountProfile | null;
   appealStatus: string | null;
   summary: AccountSummary;
@@ -285,17 +285,22 @@ export default function AccountForm({
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">Minecraft · SubReel Launcher</p>
             <h2 id="minecraft-account-heading" className="mt-2 text-xl font-bold">Игровой профиль</h2>
-            {minecraftProfile ? (
+            {minecraftProfiles.length > 0 ? (
               <>
-                <p className="mt-2 text-sm text-text-secondary">Аккаунт лаунчера подключён к SubReel ID. Игровые данные будут показываться только после подтверждённой привязки.</p>
-                <div className="mt-4 flex items-center gap-3 rounded-xl border border-sky-300/15 bg-black/20 p-3">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-sky-400/10 text-xl">⛏</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{minecraftProfile.minecraft_username}</span>
-                    <span className="mt-0.5 block truncate text-xs text-text-muted">UUID: {minecraftProfile.minecraft_uuid}</span>
-                  </span>
-                  <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">Подключён</span>
+                <p className="mt-2 text-sm text-text-secondary">К SubReel ID подключено профилей: {minecraftProfiles.length}. Каждый аккаунт хранится отдельно.</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {minecraftProfiles.map((minecraftProfile) => (
+                    <div key={minecraftProfile.minecraft_uuid} className="flex min-w-0 items-center gap-3 rounded-xl border border-sky-300/15 bg-black/20 p-3">
+                      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-sky-400/10 text-xl" aria-hidden>⛏</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold">{minecraftProfile.minecraft_username}</span>
+                        <span className="mt-0.5 block break-all text-xs text-text-muted">UUID: {minecraftProfile.minecraft_uuid}</span>
+                        <span className="mt-2 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">Подключён</span>
+                      </span>
+                    </div>
+                  ))}
                 </div>
+                <p className="mt-3 text-xs leading-5 text-text-muted">Привязка и отвязка конкретного игрового аккаунта будут выполняться через подтверждённую авторизацию в SubReel Launcher.</p>
               </>
             ) : (
               <>
