@@ -6,9 +6,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { listAuthUsers } from "@/lib/supabase/admin-users";
 import { adjustSubCoins } from "./actions";
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-
 type Props = { searchParams: Promise<{ error?: string; success?: string; q?: string }> };
 type Wallet = { user_id: string; balance: number; updated_at: string };
 type Transaction = { id: string; user_id: string; actor_id: string | null; delta: number; balance_after: number; reason: string; created_at: string };
