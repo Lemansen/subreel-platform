@@ -5,8 +5,11 @@ set minecraft_uuid = lower(replace(trim(minecraft_uuid), '-', ''))
 where minecraft_uuid is distinct from lower(replace(trim(minecraft_uuid), '-', ''));
 
 -- Profile associations may only be changed by the trusted server API.
--- Keep authenticated users able to read their own rows through the existing SELECT policy.
-revoke insert, update, delete on public.launcher_game_profiles from authenticated;
+-- RLS does not protect against TRUNCATE, so revoke every table privilege and
+-- explicitly restore only SELECT for authenticated users. The existing SELECT
+-- policy continues to scope visible rows to auth.uid() = user_id.
+revoke all on public.launcher_game_profiles from anon, authenticated;
+grant select on public.launcher_game_profiles to authenticated;
 
 drop policy if exists "Users can insert own launcher game profile"
     on public.launcher_game_profiles;
