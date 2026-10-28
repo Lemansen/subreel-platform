@@ -35,7 +35,7 @@ Do not apply these migrations to production yet: the existing launcher service m
 
 ## Website API implemented on the feature branch
 
-All routes derive the SubReel user from the server-side Supabase session. They do not accept a user ID from the request body. Responses set `Cache-Control: no-store`.
+All routes authenticate either the website's server-side Supabase cookie session or a `Authorization: Bearer <SubReel access token>` header for the native launcher. The user ID is always derived from the verified Supabase user and is never accepted from the request body. Responses set `Cache-Control: no-store`.
 
 ### `GET /api/launcher/minecraft-profiles`
 
@@ -55,7 +55,7 @@ Returns only the current user's linked profiles:
 
 ### `POST /api/launcher/minecraft-profiles`
 
-Accepts a short-lived Minecraft access token in the JSON body:
+Accepts a short-lived Minecraft access token in the JSON body. The native launcher should also send its SubReel access token in the `Authorization` header:
 
 ```json
 { "minecraftAccessToken": "..." }
