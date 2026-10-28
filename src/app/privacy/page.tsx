@@ -3,6 +3,8 @@ import Link from "next/link";
 import { CookieSettingsButton } from "@/components/cookie-consent";
 import { SiteHeader } from "@/components/site-header";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Конфиденциальность и cookie",
   description: "Информация о cookie, авторизации и обработке данных на SubReel.",
