@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { SiteHeader } from "@/components/site-header";
 
 export const instant = false;
@@ -9,6 +10,8 @@ export const metadata = {
 };
 
 export default async function Home() {
+  await connection();
+
   return (
     <main className="relative isolate min-h-screen overflow-hidden bg-[#080910] text-white">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
