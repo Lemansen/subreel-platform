@@ -19,22 +19,29 @@ export function CookieConsent() {
   const [marketing, setMarketing] = useState(false);
 
   useEffect(() => {
+    let frame = 0;
     const reopen = () => { setSettingsOpen(true); setVisible(true); };
     window.addEventListener("subreel-cookie-settings-open", reopen);
+
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       if (!saved) {
-        setVisible(true);
-        return;
+        frame = window.requestAnimationFrame(() => setVisible(true));
+      } else {
+        const parsed = JSON.parse(saved) as Partial<Consent>;
+        frame = window.requestAnimationFrame(() => {
+          setAnalytics(parsed.analytics === true);
+          setMarketing(parsed.marketing === true);
+        });
       }
-
-      const parsed = JSON.parse(saved) as Partial<Consent>;
-      setAnalytics(parsed.analytics === true);
-      setMarketing(parsed.marketing === true);
     } catch {
-      setVisible(true);
+      frame = window.requestAnimationFrame(() => setVisible(true));
     }
-    return () => window.removeEventListener("subreel-cookie-settings-open", reopen);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("subreel-cookie-settings-open", reopen);
+    };
   }, []);
 
   function saveConsent(nextAnalytics: boolean, nextMarketing: boolean) {
