@@ -19,6 +19,8 @@ export function CookieConsent() {
   const [marketing, setMarketing] = useState(false);
 
   useEffect(() => {
+    const reopen = () => { setSettingsOpen(true); setVisible(true); };
+    window.addEventListener("subreel-cookie-settings-open", reopen);
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       if (!saved) {
@@ -32,6 +34,7 @@ export function CookieConsent() {
     } catch {
       setVisible(true);
     }
+    return () => window.removeEventListener("subreel-cookie-settings-open", reopen);
   }, []);
 
   function saveConsent(nextAnalytics: boolean, nextMarketing: boolean) {
