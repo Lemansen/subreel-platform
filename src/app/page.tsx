@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { SiteHeader } from "@/components/site-header";
 
 export const instant = false;
 
@@ -25,14 +26,7 @@ export default async function Home() {
         <div className="absolute -right-40 top-1/3 h-[30rem] w-[30rem] rounded-full bg-emerald-500/10 blur-[130px]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(92,63,170,0.12),transparent_55%)]" />
       </div>
-      <header className="relative z-10 mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
-        <Link href="/" aria-label="SubReel — главная" className="text-2xl font-black tracking-tight">Sub<span className="text-violet-400">Reel</span></Link>
-        <nav aria-label="Навигация" className="flex items-center gap-3">
-          <Link href="/cinema" className="hidden rounded-full px-4 py-2 text-sm text-zinc-300 transition hover:bg-white/5 hover:text-white sm:inline-flex">Кино и чтение</Link>
-          <Link href={signedIn ? "/account" : "/login"} className="inline-flex min-h-10 items-center rounded-full border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-white/[0.08]">{signedIn ? "Мой аккаунт" : "Войти"}</Link>
-        </nav>
-      </header>
-      <section className="mx-auto flex w-full max-w-7xl flex-col px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16 lg:pt-20">
+      <SiteHeader active="home" />     <section className="mx-auto flex w-full max-w-7xl flex-col px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16 lg:pt-20">
         <div className="mx-auto mb-10 max-w-3xl text-center sm:mb-14">
           <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-300/[0.06] px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-violet-200"><span className="size-1.5 rounded-full bg-violet-300" />Твой цифровой мир</p>
           <h1 className="text-4xl font-black tracking-tight sm:text-6xl lg:text-7xl">Один SubReel.<span className="mt-2 block bg-gradient-to-r from-violet-300 via-fuchsia-300 to-sky-300 bg-clip-text text-transparent">Два направления.</span></h1>
