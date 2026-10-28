@@ -4,6 +4,8 @@ import { SiteHeader } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+export const instant = false;
+
 type Props = { searchParams: Promise<{ q?: string }> };
 type LinkedProfile = {
   user_id: string;
