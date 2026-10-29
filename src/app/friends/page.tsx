@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import FriendsManager from "./friends-manager";
+
+export const metadata: Metadata = {
+  title: "Друзья | SubReel",
+  description: "Друзья, заявки и совместные активности в SubReel.",
+  robots: { index: false, follow: false },
+};
 
 async function FriendsGate() {
   const supabase = await createClient();

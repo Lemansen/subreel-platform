@@ -2,10 +2,11 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { SiteHeader } from "@/components/site-header";
+import { SiteHeader, SiteHeaderFallback } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Новости лаунчера — SubReel" };
+export const instant = false;
 
 type Release = {
   id: string;
@@ -43,7 +44,7 @@ async function LauncherNewsContent() {
   const [featured, ...rest] = releases;
 
   return <main className="min-h-screen bg-background text-white">
-    <SiteHeader active="news" />
+    <Suspense fallback={<SiteHeaderFallback />}><SiteHeader active="news" /></Suspense>
     <div className="mx-auto max-w-7xl px-4 pb-24 pt-10 sm:px-6 lg:px-8">
       <p className="text-xs font-bold uppercase tracking-[0.22em] text-accent">SubReel Launcher</p>
       <h1 className="mt-3 text-4xl font-black sm:text-5xl">Новости и обновления</h1>
