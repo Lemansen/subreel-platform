@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { connection } from "next/server";
 
 type LauncherReleaseRow = {
   id: string;
@@ -19,6 +20,7 @@ const cacheHeaders = {
 };
 
 export async function GET() {
+  await connection();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) {

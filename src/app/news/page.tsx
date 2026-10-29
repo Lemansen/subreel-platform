@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { Suspense } from "react";
 import { connection } from "next/server";
 import { SiteHeader } from "@/components/site-header";
 import { createClient } from "@/lib/supabase/server";
@@ -23,7 +24,13 @@ const dateLabel = (value: string) => new Intl.DateTimeFormat("ru-RU", { dateStyl
 const isNew = (value: string) => Date.now() - new Date(value).getTime() < 7 * 24 * 60 * 60 * 1000;
 const tagLabel = (tag: Release["news_tag"]) => ({ launcher: "Лаунчер", server: "Сервер", event: "Событие" })[tag] ?? "Лаунчер";
 
-export default async function LauncherNewsPage() {
+export default function LauncherNewsPage() {
+  return <Suspense fallback={<main className="min-h-screen bg-background p-10 text-text-secondary">Загружаю новости…</main>}>
+    <LauncherNewsContent />
+  </Suspense>;
+}
+
+async function LauncherNewsContent() {
   await connection();
   const supabase = await createClient();
   const { data, error } = await supabase.from("launcher_releases")

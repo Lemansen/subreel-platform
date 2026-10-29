@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { Suspense } from "react";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
@@ -24,7 +25,13 @@ export async function generateMetadata({ params }: Props) {
   return { title: `Обновление ${version} — SubReel`, description: "Новости и список изменений SubReel Launcher." };
 }
 
-export default async function LauncherNewsArticle({ params }: Props) {
+export default function LauncherNewsArticle({ params }: Props) {
+  return <Suspense fallback={<main className="min-h-screen bg-background p-10 text-text-secondary">Загружаю новость…</main>}>
+    <LauncherNewsArticleContent params={params} />
+  </Suspense>;
+}
+
+async function LauncherNewsArticleContent({ params }: Props) {
   await connection();
   const { version } = await params;
   const supabase = await createClient();

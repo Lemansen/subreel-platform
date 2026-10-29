@@ -1,5 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
+import { getLauncherApiUser } from "@/lib/launcher-api-auth";
 
 export const maxDuration = 60;
 
@@ -19,32 +19,20 @@ function jsonError(status: number, message: string) {
 async function authorize(request: Request): Promise<{ userId: string } | Response> {
   const authorization = request.headers.get("authorization") ?? "";
   const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!token) return jsonError(401, "Войдите в аккаунт SubReel, чтобы открыть CurseForge.");
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return jsonError(503, "На сервере SubReel не настроены NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
 
   const now = Date.now();
-  const fingerprint = createHash("sha256").update(token).digest("hex");
-  const cached = verifiedTokens.get(fingerprint);
+  const fingerprint = token ? createHash("sha256").update(token).digest("hex") : null;
+  const cached = fingerprint ? verifiedTokens.get(fingerprint) : undefined;
   let userId = cached && cached.expiresAt > now ? cached.userId : "";
   if (!userId) {
-    try {
-      const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-      const { data, error } = await supabase.auth.getUser(token);
-      if (error) {
-        const status = (error as { status?: number }).status;
-        if (status && status !== 401) return jsonError(503, "Не удалось проверить сессию SubReel. Повторите попытку позже.");
-        return jsonError(401, "Сессия SubReel истекла. Войдите снова.");
-      }
-      if (!data.user) return jsonError(401, "Сессия SubReel истекла. Войдите снова.");
-      userId = data.user.id;
-    } catch {
-      return jsonError(503, "Не удалось проверить сессию SubReel. Повторите попытку позже.");
-    }
+    const authenticated = await getLauncherApiUser(request, "Войдите в аккаунт SubReel, чтобы открыть CurseForge.");
+    if ("response" in authenticated) return authenticated.response;
+    userId = authenticated.userId;
+  }
+  if (fingerprint && !(cached && cached.expiresAt > now)) {
     let tokenExpiresAt = now + 120_000;
     try {
-      const payload = token.split(".")[1];
+      const payload = token!.split(".")[1];
       if (!payload) throw new Error("Missing token payload");
       const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { exp?: number };
       if (typeof claims.exp === "number") tokenExpiresAt = Math.min(tokenExpiresAt, claims.exp * 1000);
@@ -103,13 +91,17 @@ export async function GET(request: Request) {
   const key = curseForgeKey();
   if (key instanceof Response) return key;
   const url = new URL(request.url);
-  const action = url.searchParams.get("action") as Action | null;
+  const action = (url.searchParams.get("action") ?? "search") as Action;
 
   try {
     if (action === "search") {
       const pageSize = safeInteger(url.searchParams.get("limit"), 1, 50) ?? 20;
       const index = safeInteger(url.searchParams.get("offset"), 0, 10_000 - pageSize) ?? 0;
-      const params = new URLSearchParams({ gameId: "432", classId: "4471", pageSize: String(pageSize), index: String(index), sortField: "2", sortOrder: "desc" });
+      const searchType = url.searchParams.get("type");
+      if (searchType !== null && searchType !== "mod" && searchType !== "modpack")
+        return jsonError(400, "Некорректный тип поиска CurseForge.");
+      const classId = searchType === "mod" ? "6" : "4471";
+      const params = new URLSearchParams({ gameId: "432", classId, pageSize: String(pageSize), index: String(index), sortField: "2", sortOrder: "desc" });
       const query = (url.searchParams.get("query") ?? "").trim().slice(0, 100);
       const version = (url.searchParams.get("gameVersion") ?? "").trim().slice(0, 32);
       const loader = url.searchParams.get("loader")?.toLowerCase();

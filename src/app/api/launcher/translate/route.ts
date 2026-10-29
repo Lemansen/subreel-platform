@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { getLauncherApiUser } from "@/lib/launcher-api-auth";
 
 export const maxDuration = 30;
 
@@ -12,26 +12,17 @@ function jsonError(status: number, message: string) {
 }
 
 async function getUserId(request: Request): Promise<string | Response> {
-  const authorization = request.headers.get("authorization") ?? "";
-  const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!token) return jsonError(401, "Войдите в аккаунт SubReel, чтобы переводить описания.");
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return jsonError(503, "На сервере SubReel не настроена проверка сессии.");
-
-  const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) return jsonError(401, "Сессия SubReel истекла. Войдите снова.");
+  const authenticated = await getLauncherApiUser(request, "Войдите в аккаунт SubReel, чтобы переводить описания.");
+  if ("response" in authenticated) return authenticated.response;
 
   const now = Date.now();
-  const entry = requestsByUser.get(data.user.id);
-  if (!entry || now - entry.startedAt >= WINDOW_MS) requestsByUser.set(data.user.id, { startedAt: now, count: 1 });
+  const entry = requestsByUser.get(authenticated.userId);
+  if (!entry || now - entry.startedAt >= WINDOW_MS) requestsByUser.set(authenticated.userId, { startedAt: now, count: 1 });
   else if (++entry.count > MAX_REQUESTS_PER_WINDOW) return jsonError(429, "Слишком много запросов на перевод. Подождите минуту.");
   if (requestsByUser.size > 10_000) {
     for (const [userId, limit] of requestsByUser) if (now - limit.startedAt >= WINDOW_MS) requestsByUser.delete(userId);
   }
-  return data.user.id;
+  return authenticated.userId;
 }
 
 export async function POST(request: Request) {
